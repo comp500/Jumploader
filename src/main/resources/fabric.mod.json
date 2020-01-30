@@ -1,0 +1,29 @@
+{
+  "schemaVersion": 1,
+  "id": "jumploader",
+  "version": "1.0.0",
+
+  "name": "Jumploader",
+  "description": "TODO: a description",
+  "authors": [
+    "comp500"
+  ],
+  "contact": {
+    "homepage": "https://github.com/comp500/Jumploader",
+    "sources": "https://github.com/comp500/Jumploader",
+    "issues": "https://github.com/comp500/Jumploader/issues"
+  },
+
+  "license": "MIT",
+  "icon": "assets/borderlessmining/icon.png TODO: image",
+
+  "environment": "client",
+
+  "depends": {
+    "fabricloader": ">=0.7.2"
+  },
+  
+  "custom": {
+    "modmenu:clientsideOnly": true
+  }
+}
