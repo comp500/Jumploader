@@ -5,6 +5,7 @@ import cpw.mods.modlauncher.Launcher;
 import cpw.mods.modlauncher.api.IEnvironment;
 import cpw.mods.modlauncher.api.ITransformationService;
 import cpw.mods.modlauncher.api.ITransformer;
+import link.infra.jumploader.download.ui.Window;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
@@ -134,8 +135,17 @@ public class Jumploader implements ITransformationService {
 		handlers.putIfAbsent("jimfs", (URLStreamHandler) Class.forName("com.google.common.jimfs.Handler", true, classLoader).newInstance());
 	}
 
+	private boolean test = true;
+
 	@Override
 	public void onLoad(@Nonnull IEnvironment env, @Nonnull Set<String> set) {
+		Window window = new Window();
+		window.init();
+		while (!window.shouldClose()) {
+			window.render();
+		}
+		window.free();
+
 		// Get the game arguments
 		String[] gameArgs;
 		// Very bad reflection, don't try this at home!!
