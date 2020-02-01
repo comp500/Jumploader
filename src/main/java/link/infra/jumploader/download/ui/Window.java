@@ -44,9 +44,7 @@ public class Window implements Component {
 
 			GLFW.glfwGetWindowSize(windowPtr, width, height);
 
-			// TODO: do both need to be called????
-			updateWidth(width.get(0), height.get(0));
-			updateHeight(width.get(0), height.get(0));
+			updateSize(width.get(0), height.get(0));
 
 			GLFWVidMode vidmode = GLFW.glfwGetVideoMode(GLFW.glfwGetPrimaryMonitor());
 			if (vidmode != null) {
@@ -77,8 +75,7 @@ public class Window implements Component {
 	}
 
 	private void windowSizeChanged(long window, int width, int height) {
-		updateWidth(width, height);
-		updateHeight(width, height);
+		updateSize(width, height);
 
 		GL11.glMatrixMode(GL11.GL_PROJECTION);
 		GL11.glLoadIdentity();
@@ -139,14 +136,18 @@ public class Window implements Component {
 	}
 
 	@Override
-	public float updateWidth(float maximumWidth, float maximumHeight) {
-		rootComponent.updateWidth(maximumWidth, maximumHeight);
-		return maximumWidth;
+	public void updateSize(float maximumWidth, float maximumHeight) {
+		rootComponent.updateSize(maximumWidth, maximumHeight);
 	}
 
 	@Override
-	public float updateHeight(float maximumWidth, float maximumHeight) {
-		rootComponent.updateHeight(maximumWidth, maximumHeight);
-		return maximumHeight;
+	public float getCurrentWidth() {
+		return rootComponent.getCurrentWidth();
 	}
+
+	@Override
+	public float getCurrentHeight() {
+		return rootComponent.getCurrentHeight();
+	}
+
 }

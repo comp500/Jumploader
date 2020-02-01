@@ -29,12 +29,15 @@ public class FixedSpacer implements Component {
 	}
 
 	@Override
-	public float updateWidth(float maximumWidth, float maximumHeight) {
+	public void updateSize(float maximumWidth, float maximumHeight) {}
+
+	@Override
+	public float getCurrentWidth() {
 		return width;
 	}
 
 	@Override
-	public float updateHeight(float maximumWidth, float maximumHeight) {
+	public float getCurrentHeight() {
 		return height;
 	}
 

@@ -35,6 +35,7 @@ public class DirectionLayout implements Layout {
 	private static class PositionedComponent implements Comparable<PositionedComponent> {
 		final Component c;
 		float alignmentOffset;
+		// TODO: remove width/height?
 		float width;
 		float height;
 
@@ -54,6 +55,8 @@ public class DirectionLayout implements Layout {
 	private float minimumHeight;
 	private float currentWidth;
 	private float currentHeight;
+	private float cachedParentWidth;
+	private float cachedParentHeight;
 
 	/**
 	 * updateSize() must be called after this DirectionLayout has been modified!
@@ -121,7 +124,9 @@ public class DirectionLayout implements Layout {
 	// DirectionLayout takes up all the space it can in it's leading direction, and the sum of the widths of it's components in the non-leading direction
 
 	@Override
-	public float updateWidth(float maximumWidth, float maximumHeight) {
+	public void updateSize(float maximumWidth, float maximumHeight) {
+		cachedParentWidth = maximumWidth;
+		cachedParentHeight = maximumHeight;
 		if (direction == Direction.HORIZONTAL) {
 			if (maximumWidth <= minimumWidth) {
 				// If there is just enough or not enough space, give all components their minimum width
@@ -129,7 +134,8 @@ public class DirectionLayout implements Layout {
 				remainingSpace = 0;
 				for (PositionedComponent compPos : components) {
 					compPos.width = compPos.c.getMinimumWidth();
-					compPos.height = compPos.c.updateHeight(compPos.width, maximumHeight);
+					compPos.c.updateSize(compPos.width, maximumHeight);
+					compPos.height = compPos.c.getCurrentHeight();
 					if (compPos.height > currentHeight) {
 						currentHeight = compPos.height;
 					}
@@ -147,10 +153,11 @@ public class DirectionLayout implements Layout {
 					if (compPos.c.getGrows() == Grows.NEVER) {
 						compPos.width = compPos.c.getMinimumWidth();
 					} else {
-						compPos.width = compPos.c.updateWidth(compPos.c.getMinimumWidth() + remainingSpace, maximumHeight);
+						compPos.c.updateSize(compPos.c.getMinimumWidth() + remainingSpace, maximumHeight);
+						compPos.width = compPos.c.getCurrentWidth();
 						remainingSpace -= (compPos.width - compPos.c.getMinimumWidth());
 					}
-					compPos.height = compPos.c.updateHeight(compPos.width, maximumHeight);
+					compPos.height = compPos.c.getCurrentHeight();
 					if (compPos.height > currentHeight) {
 						currentHeight = compPos.height;
 					}
@@ -161,17 +168,6 @@ public class DirectionLayout implements Layout {
 					compPos.alignmentOffset = calculateAlignmentOffset(compPos.height, currentHeight);
 				}
 			}
-			return maximumWidth;
-		} else if (direction == Direction.VERTICAL) {
-			return currentWidth;
-		}
-		throw new Direction.InvalidDirectionException();
-	}
-
-	@Override
-	public float updateHeight(float maximumWidth, float maximumHeight) {
-		if (direction == Direction.HORIZONTAL) {
-			return currentHeight;
 		} else if (direction == Direction.VERTICAL) {
 			if (maximumHeight <= minimumHeight) {
 				// If there is just enough or not enough space, give all components their minimum height
@@ -179,7 +175,8 @@ public class DirectionLayout implements Layout {
 				remainingSpace = 0;
 				for (PositionedComponent compPos : components) {
 					compPos.height = compPos.c.getMinimumHeight();
-					compPos.width = compPos.c.updateWidth(maximumWidth, compPos.height);
+					compPos.c.updateSize(maximumWidth, compPos.height);
+					compPos.width = compPos.c.getCurrentWidth();
 					if (compPos.width > currentWidth) {
 						currentWidth = compPos.width;
 					}
@@ -197,10 +194,11 @@ public class DirectionLayout implements Layout {
 					if (compPos.c.getGrows() == Grows.NEVER) {
 						compPos.height = compPos.c.getMinimumHeight();
 					} else {
-						compPos.height = compPos.c.updateHeight(maximumWidth, compPos.c.getMinimumHeight() + remainingSpace);
+						compPos.c.updateSize(maximumWidth, compPos.c.getMinimumHeight() + remainingSpace);
+						compPos.height = compPos.c.getCurrentHeight();
 						remainingSpace -= (compPos.height - compPos.c.getMinimumHeight());
 					}
-					compPos.width = compPos.c.updateWidth(maximumWidth, compPos.height);
+					compPos.width = compPos.c.getCurrentWidth();
 					if (compPos.width > currentWidth) {
 						currentWidth = compPos.width;
 					}
@@ -211,7 +209,27 @@ public class DirectionLayout implements Layout {
 					compPos.alignmentOffset = calculateAlignmentOffset(compPos.width, currentWidth);
 				}
 			}
-			return maximumHeight;
+		} else {
+			throw new Direction.InvalidDirectionException();
+		}
+	}
+
+	@Override
+	public float getCurrentWidth() {
+		if (direction == Direction.HORIZONTAL) {
+			return cachedParentWidth;
+		} else if (direction == Direction.VERTICAL) {
+			return currentWidth;
+		}
+		throw new Direction.InvalidDirectionException();
+	}
+
+	@Override
+	public float getCurrentHeight() {
+		if (direction == Direction.HORIZONTAL) {
+			return currentHeight;
+		} else if (direction == Direction.VERTICAL) {
+			return cachedParentHeight;
 		}
 		throw new Direction.InvalidDirectionException();
 	}
@@ -242,6 +260,7 @@ public class DirectionLayout implements Layout {
 	public Layout addChild(Component component) {
 		components.add(new PositionedComponent(component));
 		updateMinimumSizes();
+		updateSize(cachedParentWidth, cachedParentHeight);
 		return this;
 	}
 
@@ -252,6 +271,7 @@ public class DirectionLayout implements Layout {
 			this.components.add(new PositionedComponent(component));
 		}
 		updateMinimumSizes();
+		updateSize(cachedParentWidth, cachedParentHeight);
 		return this;
 	}
 

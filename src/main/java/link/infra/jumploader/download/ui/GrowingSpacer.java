@@ -26,8 +26,17 @@ public class GrowingSpacer implements Component {
 		return 0;
 	}
 
+	private float maximumWidth;
+	private float maximumHeight;
+
 	@Override
-	public float updateWidth(float maximumWidth, float maximumHeight) {
+	public void updateSize(float maximumWidth, float maximumHeight) {
+		this.maximumWidth = maximumWidth;
+		this.maximumHeight = maximumHeight;
+	}
+
+	@Override
+	public float getCurrentWidth() {
 		if (direction == Direction.HORIZONTAL) {
 			return maximumWidth;
 		} else if (direction == Direction.VERTICAL) {
@@ -37,7 +46,7 @@ public class GrowingSpacer implements Component {
 	}
 
 	@Override
-	public float updateHeight(float maximumWidth, float maximumHeight) {
+	public float getCurrentHeight() {
 		if (direction == Direction.HORIZONTAL) {
 			return 0;
 		} else if (direction == Direction.VERTICAL) {

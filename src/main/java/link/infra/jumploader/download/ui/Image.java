@@ -127,20 +127,20 @@ public class Image implements Component {
 	}
 
 	@Override
-	public float updateWidth(float maximumWidth, float maximumHeight) {
+	public void updateSize(float maximumWidth, float maximumHeight) {
 		scaleFactor = maximumWidth / width;
 		if (height * scaleFactor > maximumHeight) {
 			scaleFactor = maximumHeight / height;
 		}
+	}
+
+	@Override
+	public float getCurrentWidth() {
 		return width * scaleFactor;
 	}
 
 	@Override
-	public float updateHeight(float maximumWidth, float maximumHeight) {
-		scaleFactor = maximumHeight / height;
-		if (width * scaleFactor > maximumWidth) {
-			scaleFactor = maximumWidth / width;
-		}
+	public float getCurrentHeight() {
 		return height * scaleFactor;
 	}
 }

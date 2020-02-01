@@ -6,8 +6,9 @@ public interface Component extends Comparable<Component> {
 	void free();
 	float getMinimumWidth();
 	float getMinimumHeight();
-	float updateWidth(float maximumWidth, float maximumHeight);
-	float updateHeight(float maximumWidth, float maximumHeight);
+	void updateSize(float maximumWidth, float maximumHeight);
+	float getCurrentWidth();
+	float getCurrentHeight();
 
 	enum Grows {
 		ALWAYS,
