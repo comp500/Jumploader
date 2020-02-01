@@ -21,7 +21,12 @@ public class Window implements Component {
 
 	public Window() {
 		// Populate components
-		components.add(new Container(new Image("icon.png")));
+		components.add(new DirectionLayout(DirectionLayout.Direction.HORIZONTAL).addChildren(
+			new DirectionLayout(DirectionLayout.Direction.VERTICAL).addChildren(
+				new Image("splashlogo.png"),
+				new Image("splashlogo.png")
+			)
+		));
 
 		// Initialise GLFW
 		GLFWErrorCallback.createPrint(System.err).set();
@@ -142,5 +147,15 @@ public class Window implements Component {
 		for (Component component : components) {
 			component.updateSize(width, height);
 		}
+	}
+
+	@Override
+	public int getPreferredWidth() {
+		return 0;
+	}
+
+	@Override
+	public int getPreferredHeight() {
+		return 0;
 	}
 }

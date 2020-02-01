@@ -85,10 +85,10 @@ public class Image implements Component {
 	public void render() {
 		GL11.glPushMatrix();
 
-		float scaleFactor = (float)winWidth / width;
-		GL11.glTranslatef(winWidth * 0.5f,  winHeight * 0.5f, 0.0f);
-		GL11.glScalef(scaleFactor, scaleFactor, 1f);
-		GL11.glTranslatef(-width * 0.5f, -height * 0.5f, 0.0f);
+		//float scaleFactor = (float)winWidth / width;
+		//GL11.glTranslatef(winWidth * 0.5f,  winHeight * 0.5f, 0.0f);
+		//GL11.glScalef(scaleFactor, scaleFactor, 1f);
+		//GL11.glTranslatef(-width * 0.5f, -height * 0.5f, 0.0f);
 
 		GL11.glBindTexture(GL11.GL_TEXTURE_2D, textureID);
 
@@ -118,5 +118,15 @@ public class Image implements Component {
 	public void updateSize(int width, int height) {
 		this.winWidth = width;
 		this.winHeight = height;
+	}
+
+	@Override
+	public int getPreferredWidth() {
+		return width;
+	}
+
+	@Override
+	public int getPreferredHeight() {
+		return height;
 	}
 }

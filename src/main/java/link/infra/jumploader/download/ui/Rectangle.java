@@ -20,4 +20,14 @@ public class Rectangle implements Component {
 	public void updateSize(int width, int height) {
 
 	}
+
+	@Override
+	public int getPreferredWidth() {
+		return 0;
+	}
+
+	@Override
+	public int getPreferredHeight() {
+		return 0;
+	}
 }
