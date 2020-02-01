@@ -133,9 +133,12 @@ public class DirectionLayout implements Layout {
 					if (compPos.height > currentHeight) {
 						currentHeight = compPos.height;
 					}
-					compPos.alignmentOffset = calculateAlignmentOffset(compPos.height, maximumHeight);
 				}
 				currentWidth = minimumWidth;
+				// Calculate alignment offsets such that this Layout only takes currentHeight rather than maximumHeight
+				for (PositionedComponent compPos : components) {
+					compPos.alignmentOffset = calculateAlignmentOffset(compPos.height, currentHeight);
+				}
 			} else {
 				// If there is more than enough space, give components space according to their order
 				currentHeight = 0;
@@ -151,9 +154,12 @@ public class DirectionLayout implements Layout {
 					if (compPos.height > currentHeight) {
 						currentHeight = compPos.height;
 					}
-					compPos.alignmentOffset = calculateAlignmentOffset(compPos.height, maximumHeight);
 				}
 				currentWidth = minimumWidth + (remainingSpace > 0 ? remainingSpace : 0);
+				// Calculate alignment offsets such that this Layout only takes currentHeight rather than maximumHeight
+				for (PositionedComponent compPos : components) {
+					compPos.alignmentOffset = calculateAlignmentOffset(compPos.height, currentHeight);
+				}
 			}
 			return maximumWidth;
 		} else if (direction == Direction.VERTICAL) {
@@ -177,9 +183,12 @@ public class DirectionLayout implements Layout {
 					if (compPos.width > currentWidth) {
 						currentWidth = compPos.width;
 					}
-					compPos.alignmentOffset = calculateAlignmentOffset(compPos.width, maximumWidth);
 				}
 				currentHeight = minimumHeight;
+				// Calculate alignment offsets such that this Layout only takes currentWidth rather than maximumWidth
+				for (PositionedComponent compPos : components) {
+					compPos.alignmentOffset = calculateAlignmentOffset(compPos.width, currentWidth);
+				}
 			} else {
 				// If there is more than enough space, give components space according to their order
 				currentWidth = 0;
@@ -195,9 +204,12 @@ public class DirectionLayout implements Layout {
 					if (compPos.width > currentWidth) {
 						currentWidth = compPos.width;
 					}
-					compPos.alignmentOffset = calculateAlignmentOffset(compPos.width, maximumWidth);
 				}
 				currentHeight = minimumHeight + (remainingSpace > 0 ? remainingSpace : 0);
+				// Calculate alignment offsets such that this Layout only takes currentWidth rather than maximumWidth
+				for (PositionedComponent compPos : components) {
+					compPos.alignmentOffset = calculateAlignmentOffset(compPos.width, currentWidth);
+				}
 			}
 			return maximumHeight;
 		}
