@@ -24,6 +24,6 @@ public interface Component extends Comparable<Component> {
 	default int compareTo(Component other) {
 		int firstEquiv = getGrows().ordinal();
 		int secondEquiv = other.getGrows().ordinal();
-		return secondEquiv - firstEquiv;
+		return firstEquiv - secondEquiv;
 	}
 }

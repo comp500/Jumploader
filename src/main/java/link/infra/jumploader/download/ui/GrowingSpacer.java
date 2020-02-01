@@ -39,9 +39,9 @@ public class GrowingSpacer implements Component {
 	@Override
 	public float updateHeight(float maximumWidth, float maximumHeight) {
 		if (direction == Direction.HORIZONTAL) {
-			return maximumHeight;
-		} else if (direction == Direction.VERTICAL) {
 			return 0;
+		} else if (direction == Direction.VERTICAL) {
+			return maximumHeight;
 		}
 		throw new Direction.InvalidDirectionException();
 	}

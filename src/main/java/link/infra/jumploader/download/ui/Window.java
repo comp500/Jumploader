@@ -16,22 +16,16 @@ import java.util.Objects;
 public class Window implements Component {
 	private final ArrayList<Component> components = new ArrayList<>();
 	private final long windowPtr;
-	// TODO: implement getter
 	private boolean shouldClose;
 
 	public Window() {
 		// Populate components
-		components.add(
-				// TODO: make DirectionLayout make space only on outside, not between components
-				// TODO: also fix stuff being broken on first paint
-				// TODO: also figure out adaptive width magic
-				new DirectionLayout(Direction.VERTICAL).addChildren(
-					new Image("splashlogo.png"),
-					new FixedSpacer(0, 30),
-					new FixedRectangle(500, 30, 1f, 0f, 0f),
-					new FixedRectangle(200, 30, 0f, 0f, 0f)
-				)
-			);
+		components.add(new DirectionLayout(Direction.VERTICAL).addChildren(
+			new Image("splashlogo.png"),
+			new FixedRectangle(500, 30, 1f, 0f, 0f),
+			new GrowingSpacer(Direction.VERTICAL),
+			new FixedRectangle(200, 30, 0f, 0f, 0f)
+		));
 
 		// Initialise GLFW
 		GLFWErrorCallback.createPrint(System.err).set();

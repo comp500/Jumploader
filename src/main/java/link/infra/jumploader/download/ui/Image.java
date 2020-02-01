@@ -89,11 +89,7 @@ public class Image implements Component {
 		GL11.glEnable(GL11.GL_BLEND);
 		GL11.glBlendFunc(GL11.GL_ONE, GL11.GL_ONE_MINUS_SRC_ALPHA);
 
-		// TODO: scale width/height to container?
-		//float scaleFactor = (float)winWidth / width;
-		//GL11.glTranslatef(winWidth * 0.5f,  winHeight * 0.5f, 0.0f);
-		//GL11.glScalef(scaleFactor, scaleFactor, 1f);
-		//GL11.glTranslatef(-width * 0.5f, -height * 0.5f, 0.0f);
+		GL11.glScalef(scaleFactor, scaleFactor, 1f);
 
 		GL11.glBindTexture(GL11.GL_TEXTURE_2D, textureID);
 

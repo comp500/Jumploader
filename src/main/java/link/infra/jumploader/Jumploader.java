@@ -135,8 +135,6 @@ public class Jumploader implements ITransformationService {
 		handlers.putIfAbsent("jimfs", (URLStreamHandler) Class.forName("com.google.common.jimfs.Handler", true, classLoader).newInstance());
 	}
 
-	private boolean test = true;
-
 	@Override
 	public void onLoad(@Nonnull IEnvironment env, @Nonnull Set<String> set) {
 		Window window = new Window();
