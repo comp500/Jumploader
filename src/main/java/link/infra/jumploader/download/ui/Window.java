@@ -12,6 +12,11 @@ import org.lwjgl.system.MemoryUtil;
 import java.nio.IntBuffer;
 import java.util.Objects;
 
+/**
+ * A rudimentary LWJGL3 based GUI system. There are some limitations:
+ * - Components must only change size when their parents change size (i.e. the Window)
+ * - If two or more components can grow, the first component gets priority
+ */
 public class Window implements Component {
 	private final Component rootComponent;
 	private final long windowPtr;
