@@ -5,7 +5,7 @@ import cpw.mods.modlauncher.Launcher;
 import cpw.mods.modlauncher.api.IEnvironment;
 import cpw.mods.modlauncher.api.ITransformationService;
 import cpw.mods.modlauncher.api.ITransformer;
-import link.infra.jumploader.download.ui.*;
+import link.infra.jumploader.download.DownloadManager;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
@@ -137,19 +137,8 @@ public class Jumploader implements ITransformationService {
 
 	@Override
 	public void onLoad(@Nonnull IEnvironment env, @Nonnull Set<String> set) {
-		Window window = new Window(new ReasonableAdaptiveWidthContainer(
-			new DirectionLayout(Direction.VERTICAL).addChildren(
-				new Image("splashlogo.png", false, true),
-				new FixedRectangle(500, 30, 1f, 0f, 0f),
-				//new GrowingSpacer(Direction.VERTICAL),
-				new FixedRectangle(200, 30, 0f, 0f, 0f)
-			)
-		));
-		window.init();
-		while (!window.shouldClose()) {
-			window.render();
-		}
-		window.free();
+		DownloadManager manager = new DownloadManager();
+		manager.download();
 
 		// Get the game arguments
 		String[] gameArgs;

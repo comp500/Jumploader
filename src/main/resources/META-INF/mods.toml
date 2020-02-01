@@ -24,7 +24,7 @@ displayName="Jumploader" #mandatory
 # A text field displayed in the mod UI
 #credits="Thanks for this example mod goes to Java" #optional
 # A text field displayed in the mod UI
-authors=""comp500"" #optional
+authors="comp500" #optional
 # The description text for the mod (multi line!) (#mandatory)
 description='''
 Loads Fabric from Forge, replacing Forge entirely
