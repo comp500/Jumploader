@@ -21,10 +21,17 @@ public class Window implements Component {
 
 	public Window() {
 		// Populate components
-		components.add(new DirectionLayout(DirectionLayout.Direction.HORIZONTAL).addChildren(
-			new DirectionLayout(DirectionLayout.Direction.VERTICAL).addChildren(
-				new Image("splashlogo.png"),
-				new Image("splashlogo.png")
+		components.add(new DirectionLayout(DirectionLayout.Direction.VERTICAL).addChildren(
+			new DirectionLayout(DirectionLayout.Direction.HORIZONTAL).addChildren(
+				// TODO: make DirectionLayout make space only on outside, not between components
+				// TODO: also fix stuff being broken on first paint
+				// TODO: also figure out adaptive width magic
+				new DirectionLayout(DirectionLayout.Direction.VERTICAL).addChildren(
+					new DirectionLayout(DirectionLayout.Direction.HORIZONTAL).addChildren(new Image("splashlogo.png")),
+					new Spacer(0, 30),
+					new Rectangle(500, 30, 1f, 0f, 0f),
+					new Rectangle(200, 30, 0f, 0f, 0f)
+				)
 			)
 		));
 

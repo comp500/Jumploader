@@ -53,19 +53,25 @@ public class DirectionLayout extends ArrayList<Component> implements Layout {
 		this.parentWidth = width;
 		this.parentHeight = height;
 		if (direction == Direction.HORIZONTAL) {
+			preferredWidth = 0;
+			preferredHeight = 0;
 			for (Component component : this) {
+				preferredWidth += component.getPreferredWidth();
+				if (component.getPreferredHeight() > preferredHeight) {
+					preferredHeight = component.getPreferredHeight();
+				}
 				component.updateSize(component.getPreferredWidth(), height);
 			}
-			// TODO: optimise this?
-			preferredWidth = stream().mapToInt(Component::getPreferredWidth).sum();
-			preferredHeight = stream().mapToInt(Component::getPreferredHeight).max().orElse(preferredHeight);
 		} else if (direction == Direction.VERTICAL) {
+			preferredWidth = 0;
+			preferredHeight = 0;
 			for (Component component : this) {
+				preferredHeight += component.getPreferredHeight();
+				if (component.getPreferredWidth() > preferredWidth) {
+					preferredWidth = component.getPreferredWidth();
+				}
 				component.updateSize(width, component.getPreferredHeight());
 			}
-			// TODO: optimise this?
-			preferredWidth = stream().mapToInt(Component::getPreferredWidth).max().orElse(preferredWidth);
-			preferredHeight = stream().mapToInt(Component::getPreferredHeight).sum();
 		}
 	}
 

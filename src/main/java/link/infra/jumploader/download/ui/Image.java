@@ -46,6 +46,7 @@ public class Image implements Component {
 	public void init() {
 		textureID = GL11.glGenTextures();
 
+		GL11.glPushAttrib(GL11.GL_TEXTURE_BIT);
 		GL11.glBindTexture(GL11.GL_TEXTURE_2D, textureID);
 		GL11.glTexParameteri(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_MAG_FILTER, GL11.GL_LINEAR);
 		GL11.glTexParameteri(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_MIN_FILTER, GL11.GL_LINEAR_MIPMAP_LINEAR);
@@ -59,32 +60,37 @@ public class Image implements Component {
 			}
 			format = GL11.GL_RGB;
 		} else {
+			// Premultiply alpha
 			int stride = width * 4;
 			for (int y = 0; y < height; y++) {
 				for (int x = 0; x < width; x++) {
 					int i = y * stride + x * 4;
 
 					float alpha = (imageData.get(i + 3) & 0xFF) / 255.0f;
-					imageData.put(i, (byte)Math.round(((imageData.get(i) & 0xFF) * alpha)));
-					imageData.put(i + 1, (byte)Math.round(((imageData.get(i + 1) & 0xFF) * alpha)));
-					imageData.put(i + 2, (byte)Math.round(((imageData.get(i + 2) & 0xFF) * alpha)));
+					imageData.put(i, (byte) Math.round(((imageData.get(i) & 0xFF) * alpha)));
+					imageData.put(i + 1, (byte) Math.round(((imageData.get(i + 1) & 0xFF) * alpha)));
+					imageData.put(i + 2, (byte) Math.round(((imageData.get(i + 2) & 0xFF) * alpha)));
 				}
 			}
-
-			GL11.glEnable(GL11.GL_BLEND);
-			GL11.glBlendFunc(GL11.GL_ONE, GL11.GL_ONE_MINUS_SRC_ALPHA);
 
 			format = GL11.GL_RGBA;
 		}
 
 		GL11.glTexImage2D(GL11.GL_TEXTURE_2D, 0, format, width, height, 0, format, GL11.GL_UNSIGNED_BYTE, imageData);
 		STBImage.stbi_image_free(imageData);
+
+		GL11.glPopAttrib();
 	}
 
 	@Override
 	public void render() {
 		GL11.glPushMatrix();
+		GL11.glPushAttrib(GL11.GL_TEXTURE_BIT | GL11.GL_ENABLE_BIT | GL11.GL_COLOR_BUFFER_BIT);
 
+		GL11.glEnable(GL11.GL_BLEND);
+		GL11.glBlendFunc(GL11.GL_ONE, GL11.GL_ONE_MINUS_SRC_ALPHA);
+
+		// TODO: scale width/height to container?
 		//float scaleFactor = (float)winWidth / width;
 		//GL11.glTranslatef(winWidth * 0.5f,  winHeight * 0.5f, 0.0f);
 		//GL11.glScalef(scaleFactor, scaleFactor, 1f);
@@ -106,6 +112,7 @@ public class Image implements Component {
 		GL11.glVertex2f(0.0f, height);
 		GL11.glEnd();
 
+		GL11.glPopAttrib();
 		GL11.glPopMatrix();
 	}
 
