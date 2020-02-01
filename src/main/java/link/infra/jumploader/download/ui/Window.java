@@ -20,11 +20,14 @@ public class Window implements Component {
 
 	public Window() {
 		// Populate components
-		components.add(new DirectionLayout(Direction.VERTICAL).addChildren(
-			new Image("splashlogo.png"),
-			new FixedRectangle(500, 30, 1f, 0f, 0f),
-			new GrowingSpacer(Direction.VERTICAL),
-			new FixedRectangle(200, 30, 0f, 0f, 0f)
+		components.add(new DirectionLayout(Direction.VERTICAL, Alignment.START, false).addChildren(
+			new DirectionLayout(Direction.VERTICAL).addChildren(
+				new Image("splashlogo.png"),
+				new FixedRectangle(500, 30, 1f, 0f, 0f),
+				new GrowingSpacer(Direction.VERTICAL),
+				new FixedRectangle(200, 30, 0f, 0f, 0f)
+			),
+			new FixedRectangle(100, 100, 1f, 0f, 0f)
 		));
 
 		// Initialise GLFW
@@ -116,7 +119,6 @@ public class Window implements Component {
 		return shouldClose;
 	}
 
-	// TODO: window should rescale/translate matrix itself? so all components are on a 0-1f frame?
 	private void redraw() {
 		// Render a frame
 		GL11.glClear(GL11.GL_COLOR_BUFFER_BIT);

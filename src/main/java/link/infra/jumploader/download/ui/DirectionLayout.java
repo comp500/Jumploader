@@ -5,7 +5,6 @@ import org.lwjgl.opengl.GL11;
 
 import javax.annotation.Nonnull;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Iterator;
 
 public class DirectionLayout implements Layout {
@@ -33,15 +32,28 @@ public class DirectionLayout implements Layout {
 		this.alignment = alignment;
 	}
 
-	private final ArrayList<Component> components = new ArrayList<>();
+	private static class PositionedComponent implements Comparable<PositionedComponent> {
+		final Component c;
+		float alignmentOffset;
+		float width;
+		float height;
+
+		private PositionedComponent(Component c) {
+			this.c = c;
+		}
+
+		@Override
+		public int compareTo(PositionedComponent other) {
+			return c.compareTo(other.c);
+		}
+	}
+
+	private final ArrayList<PositionedComponent> components = new ArrayList<>();
 	private float remainingSpace;
 	private float minimumWidth;
 	private float minimumHeight;
 	private float currentWidth;
 	private float currentHeight;
-	private float[] cachedAlignmentOffsets;
-	private float[] cachedComponentWidths;
-	private float[] cachedComponentHeights;
 
 	/**
 	 * updateSize() must be called after this DirectionLayout has been modified!
@@ -58,28 +70,26 @@ public class DirectionLayout implements Layout {
 			}
 		}
 
-		int i = 0;
-		float individualSpacing = cachedAlignmentOffsets.length > 0 ? remainingSpace / (cachedAlignmentOffsets.length - 1) : 0;
-		for (Component component : this) {
+		float individualSpacing = components.size() > 0 ? remainingSpace / (components.size() - 1) : 0;
+		for (PositionedComponent compPos : components) {
 			if (direction == Direction.HORIZONTAL) {
 				// Offset into the alignment offset of this component
-				GL11.glTranslatef(0f, cachedAlignmentOffsets[i], 0f);
-				component.render();
+				GL11.glTranslatef(0f, compPos.alignmentOffset, 0f);
+				compPos.c.render();
 				// Reset the offset, translate past the width of this component
-				GL11.glTranslatef(cachedComponentWidths[i], -cachedAlignmentOffsets[i], 0f);
+				GL11.glTranslatef(compPos.width, -compPos.alignmentOffset, 0f);
 				if (spaceBetween) {
 					// It doesn't matter if we translate at the end, that'll get reset when we popMatrix
 					GL11.glTranslatef(individualSpacing, 0f, 0f);
 				}
 			} else if (direction == Direction.VERTICAL) {
-				GL11.glTranslatef(cachedAlignmentOffsets[i], 0f, 0f);
-				component.render();
-				GL11.glTranslatef(-cachedAlignmentOffsets[i], cachedComponentHeights[i], 0f);
+				GL11.glTranslatef(compPos.alignmentOffset, 0f, 0f);
+				compPos.c.render();
+				GL11.glTranslatef(-compPos.alignmentOffset, compPos.height, 0f);
 				if (spaceBetween) {
 					GL11.glTranslatef(0f, individualSpacing, 0f);
 				}
 			}
-			i++;
 		}
 		GL11.glPopMatrix();
 	}
@@ -115,38 +125,33 @@ public class DirectionLayout implements Layout {
 		if (direction == Direction.HORIZONTAL) {
 			if (maximumWidth <= minimumWidth) {
 				// If there is just enough or not enough space, give all components their minimum width
-				int i = 0;
 				currentHeight = 0;
 				remainingSpace = 0;
-				for (Component component : components) {
-					cachedComponentWidths[i] = component.getMinimumWidth();
-					cachedComponentHeights[i] = component.updateHeight(cachedComponentWidths[i], maximumHeight);
-					if (cachedComponentHeights[i] > currentHeight) {
-						currentHeight = cachedComponentHeights[i];
+				for (PositionedComponent compPos : components) {
+					compPos.width = compPos.c.getMinimumWidth();
+					compPos.height = compPos.c.updateHeight(compPos.width, maximumHeight);
+					if (compPos.height > currentHeight) {
+						currentHeight = compPos.height;
 					}
-					cachedAlignmentOffsets[i] = calculateAlignmentOffset(cachedComponentHeights[i], maximumHeight);
-					i++;
+					compPos.alignmentOffset = calculateAlignmentOffset(compPos.height, maximumHeight);
 				}
 				currentWidth = minimumWidth;
 			} else {
 				// If there is more than enough space, give components space according to their order
-				// TODO: HWOOPS IT GETS THE WRONG i IM STUPID
-				int i = 0;
 				currentHeight = 0;
 				remainingSpace = maximumWidth - minimumWidth;
-				for (Component component : new SortedIterable<>(components)) {
-					if (component.getGrows() == Grows.NEVER) {
-						cachedComponentWidths[i] = component.getMinimumWidth();
+				for (PositionedComponent compPos : new SortedIterable<>(components)) {
+					if (compPos.c.getGrows() == Grows.NEVER) {
+						compPos.width = compPos.c.getMinimumWidth();
 					} else {
-						cachedComponentWidths[i] = component.updateWidth(component.getMinimumWidth() + remainingSpace, maximumHeight);
-						remainingSpace -= (cachedComponentWidths[i] - component.getMinimumWidth());
+						compPos.width = compPos.c.updateWidth(compPos.c.getMinimumWidth() + remainingSpace, maximumHeight);
+						remainingSpace -= (compPos.width - compPos.c.getMinimumWidth());
 					}
-					cachedComponentHeights[i] = component.updateHeight(cachedComponentWidths[i], maximumHeight);
-					if (cachedComponentHeights[i] > currentHeight) {
-						currentHeight = cachedComponentHeights[i];
+					compPos.height = compPos.c.updateHeight(compPos.width, maximumHeight);
+					if (compPos.height > currentHeight) {
+						currentHeight = compPos.height;
 					}
-					cachedAlignmentOffsets[i] = calculateAlignmentOffset(cachedComponentHeights[i], maximumHeight);
-					i++;
+					compPos.alignmentOffset = calculateAlignmentOffset(compPos.height, maximumHeight);
 				}
 				currentWidth = minimumWidth + (remainingSpace > 0 ? remainingSpace : 0);
 			}
@@ -164,37 +169,33 @@ public class DirectionLayout implements Layout {
 		} else if (direction == Direction.VERTICAL) {
 			if (maximumHeight <= minimumHeight) {
 				// If there is just enough or not enough space, give all components their minimum height
-				int i = 0;
 				currentWidth = 0;
 				remainingSpace = 0;
-				for (Component component : components) {
-					cachedComponentHeights[i] = component.getMinimumHeight();
-					cachedComponentWidths[i] = component.updateWidth(maximumWidth, cachedComponentHeights[i]);
-					if (cachedComponentWidths[i] > currentWidth) {
-						currentWidth = cachedComponentWidths[i];
+				for (PositionedComponent compPos : components) {
+					compPos.height = compPos.c.getMinimumHeight();
+					compPos.width = compPos.c.updateWidth(maximumWidth, compPos.height);
+					if (compPos.width > currentWidth) {
+						currentWidth = compPos.width;
 					}
-					cachedAlignmentOffsets[i] = calculateAlignmentOffset(cachedComponentWidths[i], maximumWidth);
-					i++;
+					compPos.alignmentOffset = calculateAlignmentOffset(compPos.width, maximumWidth);
 				}
 				currentHeight = minimumHeight;
 			} else {
 				// If there is more than enough space, give components space according to their order
-				int i = 0;
 				currentWidth = 0;
 				remainingSpace = maximumHeight - minimumHeight;
-				for (Component component : new SortedIterable<>(components)) {
-					if (component.getGrows() == Grows.NEVER) {
-						cachedComponentHeights[i] = component.getMinimumHeight();
+				for (PositionedComponent compPos : new SortedIterable<>(components)) {
+					if (compPos.c.getGrows() == Grows.NEVER) {
+						compPos.height = compPos.c.getMinimumHeight();
 					} else {
-						cachedComponentHeights[i] = component.updateHeight(maximumWidth, component.getMinimumHeight() + remainingSpace);
-						remainingSpace -= (cachedComponentHeights[i] - component.getMinimumHeight());
+						compPos.height = compPos.c.updateHeight(maximumWidth, compPos.c.getMinimumHeight() + remainingSpace);
+						remainingSpace -= (compPos.height - compPos.c.getMinimumHeight());
 					}
-					cachedComponentWidths[i] = component.updateWidth(maximumWidth, cachedComponentHeights[i]);
-					if (cachedComponentWidths[i] > currentWidth) {
-						currentWidth = cachedComponentWidths[i];
+					compPos.width = compPos.c.updateWidth(maximumWidth, compPos.height);
+					if (compPos.width > currentWidth) {
+						currentWidth = compPos.width;
 					}
-					cachedAlignmentOffsets[i] = calculateAlignmentOffset(cachedComponentWidths[i], maximumWidth);
-					i++;
+					compPos.alignmentOffset = calculateAlignmentOffset(compPos.width, maximumWidth);
 				}
 				currentHeight = minimumHeight + (remainingSpace > 0 ? remainingSpace : 0);
 			}
@@ -225,26 +226,19 @@ public class DirectionLayout implements Layout {
 		}
 	}
 
-	private void resetCacheArrays() {
-		if (cachedComponentWidths == null || cachedComponentWidths.length != components.size()) {
-			cachedComponentWidths = new float[components.size()];
-			cachedComponentHeights = new float[components.size()];
-			cachedAlignmentOffsets = new float[components.size()];
-		}
-	}
-
 	@Override
 	public Layout addChild(Component component) {
-		components.add(component);
-		resetCacheArrays();
+		components.add(new PositionedComponent(component));
 		updateMinimumSizes();
 		return this;
 	}
 
 	@Override
 	public Layout addChildren(Component... components) {
-		this.components.addAll(Arrays.asList(components));
-		resetCacheArrays();
+		this.components.ensureCapacity(this.components.size() + components.length);
+		for (Component component : components) {
+			this.components.add(new PositionedComponent(component));
+		}
 		updateMinimumSizes();
 		return this;
 	}
@@ -252,6 +246,17 @@ public class DirectionLayout implements Layout {
 	@Override
 	@Nonnull
 	public Iterator<Component> iterator() {
-		return components.iterator();
+		Iterator<PositionedComponent> subIterator = components.iterator();
+		return new Iterator<Component>() {
+			@Override
+			public boolean hasNext() {
+				return subIterator.hasNext();
+			}
+
+			@Override
+			public Component next() {
+				return subIterator.next().c;
+			}
+		};
 	}
 }
