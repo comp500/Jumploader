@@ -1,15 +1,6 @@
 package link.infra.jumploader.download.ui;
 
-import java.util.Arrays;
-import java.util.Collection;
-
-public interface Layout extends Collection<Component>, Component {
-	enum Growth {
-		ALWAYS,
-		SOMETIMES,
-		NEVER
-	}
-
+public interface Layout extends Iterable<Component>, Component {
 	@Override
 	default void init() {
 		for (Component component : this) {
@@ -24,8 +15,6 @@ public interface Layout extends Collection<Component>, Component {
 		}
 	}
 
-	default Layout addChildren(Component... components) {
-		this.addAll(Arrays.asList(components));
-		return this;
-	}
+	Layout addChild(Component component);
+	Layout addChildren(Component... components);
 }

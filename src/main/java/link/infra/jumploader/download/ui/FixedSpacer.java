@@ -1,10 +1,10 @@
 package link.infra.jumploader.download.ui;
 
-public class Spacer implements Component {
+public class FixedSpacer implements Component {
 	private final int width;
 	private final int height;
 
-	public Spacer(int width, int height) {
+	public FixedSpacer(int width, int height) {
 		this.width = width;
 		this.height = height;
 	}
@@ -19,25 +19,27 @@ public class Spacer implements Component {
 	public void free() {}
 
 	@Override
-	public void updateSize(int width, int height) {}
-
-	@Override
-	public int getMinimumWidth() {
+	public float getMinimumWidth() {
 		return width;
 	}
 
 	@Override
-	public int getMinimumHeight() {
+	public float getMinimumHeight() {
 		return height;
 	}
 
 	@Override
-	public int getMaximumWidth() {
+	public float updateWidth(float maximumWidth, float maximumHeight) {
 		return width;
 	}
 
 	@Override
-	public int getMaximumHeight() {
+	public float updateHeight(float maximumWidth, float maximumHeight) {
 		return height;
+	}
+
+	@Override
+	public Grows getGrows() {
+		return Grows.NEVER;
 	}
 }

@@ -2,21 +2,19 @@ package link.infra.jumploader.download.ui;
 
 import org.lwjgl.opengl.GL11;
 
-public class Rectangle implements Component {
+public class FixedRectangle implements Component {
 	private final int width;
 	private final int height;
-	private int parentWidth = 100;
-	private int parentHeight = 100;
 	private final float r;
 	private final float g;
 	private final float b;
 	private final float a;
 
-	public Rectangle(int width, int height, float r, float g, float b) {
+	public FixedRectangle(int width, int height, float r, float g, float b) {
 		this(width, height, r, g, b, 0f);
 	}
 
-	public Rectangle(int width, int height, float r, float g, float b, float a) {
+	public FixedRectangle(int width, int height, float r, float g, float b, float a) {
 		this.width = width;
 		this.height = height;
 		this.r = r;
@@ -36,9 +34,9 @@ public class Rectangle implements Component {
 
 		GL11.glColor4f(r, g, b, a);
 		GL11.glVertex2f(0, 0);
-		GL11.glVertex2f(0, height == -1 ? parentHeight : height);
-		GL11.glVertex2f(width == -1 ? parentWidth : width, height == -1 ? parentHeight : height);
-		GL11.glVertex2f(width == -1 ? parentWidth : width, 0);
+		GL11.glVertex2f(0, height);
+		GL11.glVertex2f(width, height);
+		GL11.glVertex2f(width, 0);
 
 		GL11.glEnd();
 		GL11.glPopAttrib();
@@ -49,18 +47,27 @@ public class Rectangle implements Component {
 	public void free() {}
 
 	@Override
-	public void updateSize(int width, int height) {
-		parentWidth = width;
-		parentHeight = height;
+	public float getMinimumWidth() {
+		return width;
 	}
 
 	@Override
-	public int getMinimumWidth() {
-		return width == -1 ? parentWidth : width;
+	public float getMinimumHeight() {
+		return height;
 	}
 
 	@Override
-	public int getMinimumHeight() {
-		return height == -1 ? parentHeight : height;
+	public float updateWidth(float maximumWidth, float maximumHeight) {
+		return width;
+	}
+
+	@Override
+	public float updateHeight(float maximumWidth, float maximumHeight) {
+		return height;
+	}
+
+	@Override
+	public Grows getGrows() {
+		return Grows.NEVER;
 	}
 }

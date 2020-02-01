@@ -1,24 +1,17 @@
 package link.infra.jumploader.download.ui;
 
+import link.infra.jumploader.util.SortedIterable;
 import org.lwjgl.opengl.GL11;
 
+import javax.annotation.Nonnull;
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Iterator;
 
-public class DirectionLayout extends ArrayList<Component> implements Layout {
+public class DirectionLayout implements Layout {
 	private final Direction direction;
 	private final Alignment alignment;
 	private final boolean spaceBetween;
-
-	public enum Direction {
-		HORIZONTAL,
-		VERTICAL
-	}
-
-	public enum Alignment {
-		START,
-		CENTER,
-		END
-	}
 
 	/**
 	 * A Layout that lays out components in order, in the direction given
@@ -40,49 +33,55 @@ public class DirectionLayout extends ArrayList<Component> implements Layout {
 		this.alignment = alignment;
 	}
 
-	private int parentWidth;
-	private int parentHeight;
-	private int minimumWidth;
-	private int minimumHeight;
-	private int maximumWidth;
-	private int maximumHeight;
-	private int[] cachedAlignmentOffsets;
-	private int[] cachedComponentWidths;
-	private int[] cachedComponentHeights;
+	private final ArrayList<Component> components = new ArrayList<>();
+	private float remainingSpace;
+	private float minimumWidth;
+	private float minimumHeight;
+	private float currentWidth;
+	private float currentHeight;
+	private float[] cachedAlignmentOffsets;
+	private float[] cachedComponentWidths;
+	private float[] cachedComponentHeights;
 
 	/**
 	 * updateSize() must be called after this DirectionLayout has been modified!
-	 * TODO: should this changed to a decorator, so updateSize is called on modification?
+	 * TODO: call updateSize after modifying
 	 */
 	@Override
 	public void render() {
-		float spacing = 0f;
-		if (direction == Direction.HORIZONTAL) {
-			spacing = ((float)(parentWidth - minimumWidth)) / (size() + 1);
-		} else if (direction == Direction.VERTICAL) {
-			spacing = ((float)(parentHeight - minimumHeight)) / (size() + 1);
-		}
 		GL11.glPushMatrix();
-		if (direction == Direction.HORIZONTAL) {
-			GL11.glTranslatef(spacing, 0f, 0f);
-		} else if (direction == Direction.VERTICAL) {
-			GL11.glTranslatef(0f, spacing, 0f);
+		if (!spaceBetween) {
+			if (direction == Direction.HORIZONTAL) {
+				GL11.glTranslatef(remainingSpace / 2, 0f, 0f);
+			} else if (direction == Direction.VERTICAL) {
+				GL11.glTranslatef(0f, remainingSpace / 2, 0f);
+			}
 		}
+
+		int i = 0;
+		float individualSpacing = remainingSpace / cachedAlignmentOffsets.length;
 		for (Component component : this) {
 			if (direction == Direction.HORIZONTAL) {
+				GL11.glTranslatef(0f, cachedAlignmentOffsets[i], 0f);
 				component.render();
-				GL11.glTranslatef(component.getMinimumWidth(), 0f, 0f);
-				GL11.glTranslatef(spacing, 0f, 0f);
+				GL11.glTranslatef(component.getMinimumWidth(), -cachedAlignmentOffsets[i], 0f);
+				if (spaceBetween) {
+					GL11.glTranslatef(individualSpacing, 0f, 0f);
+				}
 			} else if (direction == Direction.VERTICAL) {
+				GL11.glTranslatef(cachedAlignmentOffsets[i], 0f, 0f);
 				component.render();
-				GL11.glTranslatef(0f, component.getMinimumHeight(), 0f);
-				GL11.glTranslatef(0f, spacing, 0f);
+				GL11.glTranslatef(-cachedAlignmentOffsets[i], component.getMinimumHeight(), 0f);
+				if (spaceBetween) {
+					GL11.glTranslatef(0f, individualSpacing, 0f);
+				}
 			}
+			i++;
 		}
 		GL11.glPopMatrix();
 	}
 
-	private int calculateAlignmentOffset(int componentSize, int containerSize) {
+	private float calculateAlignmentOffset(float componentSize, float containerSize) {
 		if (componentSize > containerSize) {
 			return 0;
 		}
@@ -93,88 +92,160 @@ public class DirectionLayout extends ArrayList<Component> implements Layout {
 		} else if (alignment == Alignment.END) {
 			return containerSize - componentSize;
 		}
-		return 0;
+		throw new Alignment.InvalidAlignmentException();
 	}
 
 	@Override
-	public void updateSize(int width, int height) {
-		this.parentWidth = width;
-		this.parentHeight = height;
-		if (direction == Direction.HORIZONTAL) {
-			minimumWidth = 0;
-			minimumHeight = 0;
-			maximumWidth = 0;
-			maximumHeight = 0;
-			for (Component component : this) {
-				minimumWidth += component.getMinimumWidth();
-				maximumWidth += component.getMaximumWidth();
-				if (component.getMinimumHeight() > minimumHeight) {
-					minimumHeight = component.getMinimumHeight();
-					maximumHeight = component.getMaximumHeight();
-				}
-				// TODO: calculate component sizes
-			}
-
-			// TODO: WAT oh no
-			// TODO: if a component's maximum width depends on it's height (ratio), if the max is set to Infinity it'll just take all space (i.e. no left over for padding)
-			if (parentWidth <= minimumWidth) {
-				// If there is just enough or not enough space, give all components their minimum width
-				for (int i = 0; i < size(); i++) {
-					Component component = get(i);
-					cachedComponentHeights[i] = Math.max(Math.max(component.getMaximumHeight(), maximumHeight), parentHeight);
-					cachedAlignmentOffsets[i] = calculateAlignmentOffset(cachedComponentHeights[i], maximumHeight);
-					cachedComponentWidths[i] = component.getMinimumWidth();
-					component.updateSize(cachedComponentWidths[i], cachedComponentHeights[i]);
-				}
-			} else {
-				// Equally distribute maximum width among children, up to each of their maximum widths
-				for (int i = 0; i < size(); i++) {
-					Component component = get(i);
-					cachedComponentHeights[i] = Math.max(Math.max(component.getMaximumHeight(), maximumHeight), parentHeight);
-					cachedAlignmentOffsets[i] = calculateAlignmentOffset(cachedComponentHeights[i], maximumHeight);
-					cachedComponentWidths[i] = component.getMinimumWidth();
-					component.updateSize(cachedComponentWidths[i], cachedComponentHeights[i]);
-				}
-			}
-		} else if (direction == Direction.VERTICAL) {
-			minimumWidth = 0;
-			minimumHeight = 0;
-			maximumWidth = 0;
-			maximumHeight = 0;
-			for (Component component : this) {
-				minimumHeight += component.getMinimumHeight();
-				maximumHeight += component.getMaximumHeight();
-				if (component.getMinimumWidth() > minimumWidth) {
-					minimumWidth = component.getMinimumWidth();
-					maximumWidth = component.getMaximumWidth();
-				}
-				// TODO: calculate component sizes
-				//component.updateSize(width, component.getMinimumHeight());
-			}
-			for (int i = 0; i < size(); i++) {
-				Component component = get(i);
-				cachedAlignmentOffsets[i] = calculateAlignmentOffset(component.getMaximumWidth(), maximumWidth);
-			}
-		}
-	}
-
-	@Override
-	public int getMinimumWidth() {
+	public float getMinimumWidth() {
 		return minimumWidth;
 	}
 
 	@Override
-	public int getMinimumHeight() {
+	public float getMinimumHeight() {
 		return minimumHeight;
 	}
 
+	private void updateMinimumSizes() {
+		minimumWidth = 0;
+		minimumHeight = 0;
+		if (direction == Direction.HORIZONTAL) {
+			for (Component component : this) {
+				minimumWidth += component.getMinimumWidth();
+				if (component.getMinimumHeight() > minimumHeight) {
+					minimumHeight = component.getMinimumHeight();
+				}
+			}
+		} else if (direction == Direction.VERTICAL) {
+			for (Component component : this) {
+				if (component.getMinimumWidth() > minimumWidth) {
+					minimumWidth = component.getMinimumWidth();
+				}
+				minimumHeight += component.getMinimumHeight();
+			}
+		} else {
+			throw new Direction.InvalidDirectionException();
+		}
+	}
+
+	private void resetCacheArrays() {
+		if (cachedComponentWidths == null || cachedComponentWidths.length != components.size()) {
+			cachedComponentWidths = new float[components.size()];
+			cachedComponentHeights = new float[components.size()];
+			cachedAlignmentOffsets = new float[components.size()];
+		}
+	}
+
+	// DirectionLayout takes up all the space it can in it's leading direction, and the sum of the widths of it's components in the non-leading direction
+
 	@Override
-	public int getMaximumWidth() {
-		return maximumWidth;
+	public float updateWidth(float maximumWidth, float maximumHeight) {
+		if (direction == Direction.HORIZONTAL) {
+			if (minimumWidth <= maximumWidth) {
+				// If there is just enough or not enough space, give all components their minimum width
+				int i = 0;
+				currentHeight = 0;
+				for (Component component : components) {
+					cachedComponentWidths[i] = component.getMinimumWidth();
+					cachedComponentHeights[i] = component.updateHeight(cachedComponentWidths[i], maximumHeight);
+					if (cachedComponentHeights[i] > currentHeight) {
+						currentHeight = cachedComponentHeights[i];
+					}
+					cachedAlignmentOffsets[i] = calculateAlignmentOffset(cachedComponentHeights[i], maximumHeight);
+					i++;
+				}
+				currentWidth = minimumWidth;
+			} else {
+				// If there is more than enough space, give components space according to their order
+				int i = 0;
+				currentHeight = 0;
+				remainingSpace = maximumWidth - minimumWidth;
+				for (Component component : new SortedIterable<>(components)) {
+					if (component.getGrows() == Grows.NEVER) {
+						cachedComponentWidths[i] = component.getMinimumWidth();
+					} else {
+						cachedComponentWidths[i] = component.updateWidth(component.getMinimumWidth() + remainingSpace, maximumHeight);
+						remainingSpace -= cachedComponentWidths[i];
+					}
+					cachedComponentHeights[i] = component.updateHeight(cachedComponentWidths[i], maximumHeight);
+					if (cachedComponentHeights[i] > currentHeight) {
+						currentHeight = cachedComponentHeights[i];
+					}
+					cachedAlignmentOffsets[i] = calculateAlignmentOffset(cachedComponentHeights[i], maximumHeight);
+					i++;
+				}
+				currentWidth = minimumWidth + (remainingSpace > 0 ? remainingSpace : 0);
+			}
+			return maximumWidth;
+		} else if (direction == Direction.VERTICAL) {
+			return currentWidth;
+		}
+		throw new Direction.InvalidDirectionException();
 	}
 
 	@Override
-	public int getMaximumHeight() {
-		return maximumHeight;
+	public float updateHeight(float maximumWidth, float maximumHeight) {
+		if (direction == Direction.HORIZONTAL) {
+			return currentHeight;
+		} else if (direction == Direction.VERTICAL) {
+			if (minimumHeight <= maximumHeight) {
+				// If there is just enough or not enough space, give all components their minimum height
+				int i = 0;
+				currentWidth = 0;
+				for (Component component : components) {
+					cachedComponentHeights[i] = component.getMinimumHeight();
+					cachedComponentWidths[i] = component.updateWidth(maximumWidth, cachedComponentHeights[i]);
+					if (cachedComponentWidths[i] > currentWidth) {
+						currentWidth = cachedComponentWidths[i];
+					}
+					cachedAlignmentOffsets[i] = calculateAlignmentOffset(cachedComponentWidths[i], maximumWidth);
+					i++;
+				}
+				currentHeight = minimumHeight;
+			} else {
+				// If there is more than enough space, give components space according to their order
+				int i = 0;
+				currentWidth = 0;
+				remainingSpace = maximumHeight - minimumHeight;
+				for (Component component : new SortedIterable<>(components)) {
+					if (component.getGrows() == Grows.NEVER) {
+						cachedComponentHeights[i] = component.getMinimumHeight();
+					} else {
+						cachedComponentHeights[i] = component.updateHeight(maximumWidth, component.getMinimumHeight() + remainingSpace);
+						remainingSpace -= cachedComponentHeights[i];
+					}
+					cachedComponentWidths[i] = component.updateWidth(maximumWidth, cachedComponentHeights[i]);
+					if (cachedComponentWidths[i] > currentWidth) {
+						currentWidth = cachedComponentWidths[i];
+					}
+					cachedAlignmentOffsets[i] = calculateAlignmentOffset(cachedComponentWidths[i], maximumWidth);
+					i++;
+				}
+				currentHeight = minimumHeight + (remainingSpace > 0 ? remainingSpace : 0);
+			}
+			return maximumHeight;
+		}
+		throw new Direction.InvalidDirectionException();
+	}
+
+	@Override
+	public Layout addChild(Component component) {
+		components.add(component);
+		resetCacheArrays();
+		updateMinimumSizes();
+		return this;
+	}
+
+	@Override
+	public Layout addChildren(Component... components) {
+		this.components.addAll(Arrays.asList(components));
+		resetCacheArrays();
+		updateMinimumSizes();
+		return this;
+	}
+
+	@Override
+	@Nonnull
+	public Iterator<Component> iterator() {
+		return components.iterator();
 	}
 }

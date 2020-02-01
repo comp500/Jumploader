@@ -14,9 +14,8 @@ public class Image implements Component {
 	private ByteBuffer imageData;
 	private final int width;
 	private final int height;
-	private int winWidth = 100;
-	private int winHeight = 100;
 	private final int components;
+	private float scaleFactor;
 	private int textureID;
 
 	public Image(String resourcePath) {
@@ -122,28 +121,30 @@ public class Image implements Component {
 	}
 
 	@Override
-	public void updateSize(int width, int height) {
-		this.winWidth = width;
-		this.winHeight = height;
-	}
-
-	@Override
-	public int getMinimumWidth() {
+	public float getMinimumWidth() {
 		return width;
 	}
 
 	@Override
-	public int getMinimumHeight() {
+	public float getMinimumHeight() {
 		return height;
 	}
 
 	@Override
-	public int getMaximumWidth() {
-		return 0;
+	public float updateWidth(float maximumWidth, float maximumHeight) {
+		scaleFactor = maximumWidth / width;
+		if (height * scaleFactor > maximumHeight) {
+			scaleFactor = maximumHeight / height;
+		}
+		return width * scaleFactor;
 	}
 
 	@Override
-	public int getMaximumHeight() {
-		return 0;
+	public float updateHeight(float maximumWidth, float maximumHeight) {
+		scaleFactor = maximumHeight / height;
+		if (width * scaleFactor > maximumWidth) {
+			scaleFactor = maximumWidth / width;
+		}
+		return height * scaleFactor;
 	}
 }

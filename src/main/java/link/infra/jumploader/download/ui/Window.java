@@ -22,17 +22,16 @@ public class Window implements Component {
 	public Window() {
 		// Populate components
 		components.add(
-			new DirectionLayout(DirectionLayout.Direction.HORIZONTAL).addChildren(
 				// TODO: make DirectionLayout make space only on outside, not between components
 				// TODO: also fix stuff being broken on first paint
 				// TODO: also figure out adaptive width magic
-				new DirectionLayout(DirectionLayout.Direction.VERTICAL).addChildren(
-					new DirectionLayout(DirectionLayout.Direction.HORIZONTAL).addChildren(new Image("splashlogo.png")),
-					new Spacer(0, 30),
-					new Rectangle(500, 30, 1f, 0f, 0f),
-					new Rectangle(200, 30, 0f, 0f, 0f)
+				new DirectionLayout(Direction.VERTICAL).addChildren(
+					new Image("splashlogo.png"),
+					new FixedSpacer(0, 30),
+					new FixedRectangle(500, 30, 1f, 0f, 0f),
+					new FixedRectangle(200, 30, 0f, 0f, 0f)
 				)
-			));
+			);
 
 		// Initialise GLFW
 		GLFWErrorCallback.createPrint(System.err).set();
@@ -58,7 +57,9 @@ public class Window implements Component {
 
 			GLFW.glfwGetWindowSize(windowPtr, width, height);
 
-			updateSize(width.get(0), height.get(0));
+			// TODO: do both need to be called????
+			updateWidth(width.get(0), height.get(0));
+			updateHeight(width.get(0), height.get(0));
 
 			GLFWVidMode vidmode = GLFW.glfwGetVideoMode(GLFW.glfwGetPrimaryMonitor());
 			if (vidmode != null) {
@@ -91,7 +92,8 @@ public class Window implements Component {
 	}
 
 	private void windowSizeChanged(long window, int width, int height) {
-		updateSize(width, height);
+		updateWidth(width, height);
+		updateHeight(width, height);
 
 		GL11.glMatrixMode(GL11.GL_PROJECTION);
 		GL11.glLoadIdentity();
@@ -149,29 +151,28 @@ public class Window implements Component {
 	}
 
 	@Override
-	public void updateSize(int width, int height) {
+	public float getMinimumWidth() {
+		return 0;
+	}
+
+	@Override
+	public float getMinimumHeight() {
+		return 0;
+	}
+
+	@Override
+	public float updateWidth(float maximumWidth, float maximumHeight) {
 		for (Component component : components) {
-			component.updateSize(width, height);
+			component.updateWidth(maximumWidth, maximumHeight);
 		}
+		return maximumWidth;
 	}
 
 	@Override
-	public int getMinimumWidth() {
-		return 0;
-	}
-
-	@Override
-	public int getMinimumHeight() {
-		return 0;
-	}
-
-	@Override
-	public int getMaximumWidth() {
-		return 0;
-	}
-
-	@Override
-	public int getMaximumHeight() {
-		return 0;
+	public float updateHeight(float maximumWidth, float maximumHeight) {
+		for (Component component : components) {
+			component.updateHeight(maximumWidth, maximumHeight);
+		}
+		return maximumHeight;
 	}
 }
