@@ -18,7 +18,17 @@ public class Image implements Component {
 	private float scaleFactor;
 	private int textureID;
 
+	private final boolean growLarger;
+	private final boolean shrinkSmaller;
+
 	public Image(String resourcePath) {
+		this(resourcePath, true, true);
+	}
+
+	public Image(String resourcePath, boolean growLarger, boolean shrinkSmaller) {
+		this.growLarger = growLarger;
+		this.shrinkSmaller = shrinkSmaller;
+
 		try (MemoryStack stack = MemoryStack.stackPush()) {
 			ByteBuffer imageCompressedData;
 			try {
@@ -118,19 +128,29 @@ public class Image implements Component {
 
 	@Override
 	public float getMinimumWidth() {
-		return width;
+		return shrinkSmaller ? 0 : width;
 	}
 
 	@Override
 	public float getMinimumHeight() {
-		return height;
+		return shrinkSmaller ? 0 : height;
 	}
 
 	@Override
 	public void updateSize(float maximumWidth, float maximumHeight) {
+		if (!shrinkSmaller && !growLarger) {
+			scaleFactor = 1;
+			return;
+		}
 		scaleFactor = maximumWidth / width;
 		if (height * scaleFactor > maximumHeight) {
 			scaleFactor = maximumHeight / height;
+		}
+		if (!shrinkSmaller && scaleFactor < 1) {
+			scaleFactor = 1;
+		}
+		if (!growLarger && scaleFactor > 1) {
+			scaleFactor = 1;
 		}
 	}
 

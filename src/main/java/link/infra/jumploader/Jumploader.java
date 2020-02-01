@@ -140,7 +140,7 @@ public class Jumploader implements ITransformationService {
 		Window window = new Window(new DirectionLayout(Direction.HORIZONTAL, Alignment.CENTER, true).addChildren(
 			new FixedSpacer(200, 0),
 			new DirectionLayout(Direction.VERTICAL).addChildren(
-				new Image("splashlogo.png"),
+				new Image("splashlogo.png", false, true),
 				new FixedRectangle(500, 30, 1f, 0f, 0f),
 				//new GrowingSpacer(Direction.VERTICAL),
 				new FixedRectangle(200, 30, 0f, 0f, 0f)
