@@ -10,25 +10,15 @@ import org.lwjgl.system.MemoryStack;
 import org.lwjgl.system.MemoryUtil;
 
 import java.nio.IntBuffer;
-import java.util.ArrayList;
 import java.util.Objects;
 
 public class Window implements Component {
-	private final ArrayList<Component> components = new ArrayList<>();
+	private final Component rootComponent;
 	private final long windowPtr;
 	private boolean shouldClose;
 
-	public Window() {
-		// Populate components
-		components.add(new DirectionLayout(Direction.VERTICAL, Alignment.START, false).addChildren(
-			new DirectionLayout(Direction.VERTICAL).addChildren(
-				new Image("splashlogo.png"),
-				new FixedRectangle(500, 30, 1f, 0f, 0f),
-				new GrowingSpacer(Direction.VERTICAL),
-				new FixedRectangle(200, 30, 0f, 0f, 0f)
-			),
-			new FixedRectangle(100, 100, 1f, 0f, 0f)
-		));
+	public Window(Component rootComponent) {
+		this.rootComponent = rootComponent;
 
 		// Initialise GLFW
 		GLFWErrorCallback.createPrint(System.err).set();
@@ -80,9 +70,7 @@ public class Window implements Component {
 		GLFW.glfwSwapInterval(1);
 		GLFW.glfwShowWindow(windowPtr);
 
-		for (Component component : components) {
-			component.init();
-		}
+		rootComponent.init();
 
 		GL11.glEnable(GL11.GL_TEXTURE_2D);
 		GL11.glClearColor(1.0f, 1.0f, 1.0f, 0.0f);
@@ -122,20 +110,14 @@ public class Window implements Component {
 	private void redraw() {
 		// Render a frame
 		GL11.glClear(GL11.GL_COLOR_BUFFER_BIT);
-
-		for (Component component : components) {
-			component.render();
-		}
-
+		rootComponent.render();
 		GLFW.glfwSwapBuffers(windowPtr);
 	}
 
 	@Override
 	public void free() {
 		GL11.glDisable(GL11.GL_TEXTURE_2D);
-		for (Component component : components) {
-			component.free();
-		}
+		rootComponent.free();
 
 		GL.setCapabilities(null);
 
@@ -158,17 +140,13 @@ public class Window implements Component {
 
 	@Override
 	public float updateWidth(float maximumWidth, float maximumHeight) {
-		for (Component component : components) {
-			component.updateWidth(maximumWidth, maximumHeight);
-		}
+		rootComponent.updateWidth(maximumWidth, maximumHeight);
 		return maximumWidth;
 	}
 
 	@Override
 	public float updateHeight(float maximumWidth, float maximumHeight) {
-		for (Component component : components) {
-			component.updateHeight(maximumWidth, maximumHeight);
-		}
+		rootComponent.updateHeight(maximumWidth, maximumHeight);
 		return maximumHeight;
 	}
 }
