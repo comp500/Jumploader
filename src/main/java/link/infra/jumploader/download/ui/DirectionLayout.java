@@ -7,6 +7,11 @@ import javax.annotation.Nonnull;
 import java.util.ArrayList;
 import java.util.Iterator;
 
+/**
+ * A Layout that lays out components in order, in the direction given. An Alignment can also be given to specify how the components should be aligned
+ * in the non-leading direction. It can also be specified whether to put remaining space between components, or space around them.
+ * DirectionLayout takes up all the space it can in the leading direction, and the sum of the size of its components in the non-leading direction.
+ */
 public class DirectionLayout implements Layout {
 	private final Direction direction;
 	private final Alignment alignment;
@@ -35,9 +40,6 @@ public class DirectionLayout implements Layout {
 	private static class PositionedComponent implements Comparable<PositionedComponent> {
 		final Component c;
 		float alignmentOffset;
-		// TODO: remove width/height?
-		float width;
-		float height;
 
 		private PositionedComponent(Component c) {
 			this.c = c;
@@ -46,6 +48,14 @@ public class DirectionLayout implements Layout {
 		@Override
 		public int compareTo(PositionedComponent other) {
 			return c.compareTo(other.c);
+		}
+
+		public float getWidth() {
+			return c.getCurrentWidth();
+		}
+
+		public float getHeight() {
+			return c.getCurrentHeight();
 		}
 	}
 
@@ -58,10 +68,6 @@ public class DirectionLayout implements Layout {
 	private float cachedParentWidth;
 	private float cachedParentHeight;
 
-	/**
-	 * updateSize() must be called after this DirectionLayout has been modified!
-	 * TODO: call updateSize after modifying
-	 */
 	@Override
 	public void render() {
 		GL11.glPushMatrix();
@@ -80,7 +86,7 @@ public class DirectionLayout implements Layout {
 				GL11.glTranslatef(0f, compPos.alignmentOffset, 0f);
 				compPos.c.render();
 				// Reset the offset, translate past the width of this component
-				GL11.glTranslatef(compPos.width, -compPos.alignmentOffset, 0f);
+				GL11.glTranslatef(compPos.getWidth(), -compPos.alignmentOffset, 0f);
 				if (spaceBetween) {
 					// It doesn't matter if we translate at the end, that'll get reset when we popMatrix
 					GL11.glTranslatef(individualSpacing, 0f, 0f);
@@ -88,7 +94,7 @@ public class DirectionLayout implements Layout {
 			} else if (direction == Direction.VERTICAL) {
 				GL11.glTranslatef(compPos.alignmentOffset, 0f, 0f);
 				compPos.c.render();
-				GL11.glTranslatef(-compPos.alignmentOffset, compPos.height, 0f);
+				GL11.glTranslatef(-compPos.alignmentOffset, compPos.getHeight(), 0f);
 				if (spaceBetween) {
 					GL11.glTranslatef(0f, individualSpacing, 0f);
 				}
@@ -121,8 +127,6 @@ public class DirectionLayout implements Layout {
 		return minimumHeight;
 	}
 
-	// DirectionLayout takes up all the space it can in it's leading direction, and the sum of the widths of it's components in the non-leading direction
-
 	@Override
 	public void updateSize(float maximumWidth, float maximumHeight) {
 		cachedParentWidth = maximumWidth;
@@ -133,17 +137,15 @@ public class DirectionLayout implements Layout {
 				currentHeight = 0;
 				remainingSpace = 0;
 				for (PositionedComponent compPos : components) {
-					compPos.width = compPos.c.getMinimumWidth();
-					compPos.c.updateSize(compPos.width, maximumHeight);
-					compPos.height = compPos.c.getCurrentHeight();
-					if (compPos.height > currentHeight) {
-						currentHeight = compPos.height;
+					compPos.c.updateSize(compPos.c.getMinimumWidth(), maximumHeight);
+					if (compPos.getHeight() > currentHeight) {
+						currentHeight = compPos.getHeight();
 					}
 				}
 				currentWidth = minimumWidth;
 				// Calculate alignment offsets such that this Layout only takes currentHeight rather than maximumHeight
 				for (PositionedComponent compPos : components) {
-					compPos.alignmentOffset = calculateAlignmentOffset(compPos.height, currentHeight);
+					compPos.alignmentOffset = calculateAlignmentOffset(compPos.getHeight(), Math.min(currentHeight, maximumHeight));
 				}
 			} else {
 				// If there is more than enough space, give components space according to their order
@@ -151,21 +153,19 @@ public class DirectionLayout implements Layout {
 				remainingSpace = maximumWidth - minimumWidth;
 				for (PositionedComponent compPos : new SortedIterable<>(components)) {
 					if (compPos.c.getGrows() == Grows.NEVER) {
-						compPos.width = compPos.c.getMinimumWidth();
+						compPos.c.updateSize(compPos.c.getMinimumWidth(), maximumHeight);
 					} else {
 						compPos.c.updateSize(compPos.c.getMinimumWidth() + remainingSpace, maximumHeight);
-						compPos.width = compPos.c.getCurrentWidth();
-						remainingSpace -= (compPos.width - compPos.c.getMinimumWidth());
+						remainingSpace -= (compPos.getWidth() - compPos.c.getMinimumWidth());
 					}
-					compPos.height = compPos.c.getCurrentHeight();
-					if (compPos.height > currentHeight) {
-						currentHeight = compPos.height;
+					if (compPos.getHeight() > currentHeight) {
+						currentHeight = compPos.getHeight();
 					}
 				}
 				currentWidth = minimumWidth + (remainingSpace > 0 ? remainingSpace : 0);
 				// Calculate alignment offsets such that this Layout only takes currentHeight rather than maximumHeight
 				for (PositionedComponent compPos : components) {
-					compPos.alignmentOffset = calculateAlignmentOffset(compPos.height, currentHeight);
+					compPos.alignmentOffset = calculateAlignmentOffset(compPos.getHeight(), Math.min(currentHeight, maximumHeight));
 				}
 			}
 		} else if (direction == Direction.VERTICAL) {
@@ -174,17 +174,15 @@ public class DirectionLayout implements Layout {
 				currentWidth = 0;
 				remainingSpace = 0;
 				for (PositionedComponent compPos : components) {
-					compPos.height = compPos.c.getMinimumHeight();
-					compPos.c.updateSize(maximumWidth, compPos.height);
-					compPos.width = compPos.c.getCurrentWidth();
-					if (compPos.width > currentWidth) {
-						currentWidth = compPos.width;
+					compPos.c.updateSize(maximumWidth, compPos.c.getMinimumHeight());
+					if (compPos.getWidth() > currentWidth) {
+						currentWidth = compPos.getWidth();
 					}
 				}
 				currentHeight = minimumHeight;
 				// Calculate alignment offsets such that this Layout only takes currentWidth rather than maximumWidth
 				for (PositionedComponent compPos : components) {
-					compPos.alignmentOffset = calculateAlignmentOffset(compPos.width, currentWidth);
+					compPos.alignmentOffset = calculateAlignmentOffset(compPos.getWidth(), Math.min(currentWidth, maximumWidth));
 				}
 			} else {
 				// If there is more than enough space, give components space according to their order
@@ -192,21 +190,19 @@ public class DirectionLayout implements Layout {
 				remainingSpace = maximumHeight - minimumHeight;
 				for (PositionedComponent compPos : new SortedIterable<>(components)) {
 					if (compPos.c.getGrows() == Grows.NEVER) {
-						compPos.height = compPos.c.getMinimumHeight();
+						compPos.c.updateSize(maximumWidth, compPos.c.getMinimumHeight());
 					} else {
 						compPos.c.updateSize(maximumWidth, compPos.c.getMinimumHeight() + remainingSpace);
-						compPos.height = compPos.c.getCurrentHeight();
-						remainingSpace -= (compPos.height - compPos.c.getMinimumHeight());
+						remainingSpace -= (compPos.getHeight() - compPos.c.getMinimumHeight());
 					}
-					compPos.width = compPos.c.getCurrentWidth();
-					if (compPos.width > currentWidth) {
-						currentWidth = compPos.width;
+					if (compPos.getWidth() > currentWidth) {
+						currentWidth = compPos.getWidth();
 					}
 				}
 				currentHeight = minimumHeight + (remainingSpace > 0 ? remainingSpace : 0);
 				// Calculate alignment offsets such that this Layout only takes currentWidth rather than maximumWidth
 				for (PositionedComponent compPos : components) {
-					compPos.alignmentOffset = calculateAlignmentOffset(compPos.width, currentWidth);
+					compPos.alignmentOffset = calculateAlignmentOffset(compPos.getWidth(), Math.min(currentWidth, maximumWidth));
 				}
 			}
 		} else {
