@@ -22,12 +22,22 @@ public class Spacer implements Component {
 	public void updateSize(int width, int height) {}
 
 	@Override
-	public int getPreferredWidth() {
+	public int getMinimumWidth() {
 		return width;
 	}
 
 	@Override
-	public int getPreferredHeight() {
+	public int getMinimumHeight() {
+		return height;
+	}
+
+	@Override
+	public int getMaximumWidth() {
+		return width;
+	}
+
+	@Override
+	public int getMaximumHeight() {
 		return height;
 	}
 }

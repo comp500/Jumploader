@@ -21,7 +21,7 @@ public class Window implements Component {
 
 	public Window() {
 		// Populate components
-		components.add(new DirectionLayout(DirectionLayout.Direction.VERTICAL).addChildren(
+		components.add(
 			new DirectionLayout(DirectionLayout.Direction.HORIZONTAL).addChildren(
 				// TODO: make DirectionLayout make space only on outside, not between components
 				// TODO: also fix stuff being broken on first paint
@@ -32,8 +32,7 @@ public class Window implements Component {
 					new Rectangle(500, 30, 1f, 0f, 0f),
 					new Rectangle(200, 30, 0f, 0f, 0f)
 				)
-			)
-		));
+			));
 
 		// Initialise GLFW
 		GLFWErrorCallback.createPrint(System.err).set();
@@ -46,13 +45,13 @@ public class Window implements Component {
 		GLFW.glfwWindowHint(GLFW.GLFW_VISIBLE, GLFW.GLFW_FALSE);
 		GLFW.glfwWindowHint(GLFW.GLFW_RESIZABLE, GLFW.GLFW_TRUE);
 
+		// TODO: use params?
 		// Create the window
 		windowPtr = GLFW.glfwCreateWindow(854, 480, "Jumploader", MemoryUtil.NULL, MemoryUtil.NULL);
 		if (windowPtr == MemoryUtil.NULL) {
 			throw new RuntimeException("Failed to create a window for Jumploader status");
 		}
 
-		// TODO: use params?
 		try (MemoryStack stack = MemoryStack.stackPush()) {
 			IntBuffer width = stack.mallocInt(1);
 			IntBuffer height = stack.mallocInt(1);
@@ -157,12 +156,22 @@ public class Window implements Component {
 	}
 
 	@Override
-	public int getPreferredWidth() {
+	public int getMinimumWidth() {
 		return 0;
 	}
 
 	@Override
-	public int getPreferredHeight() {
+	public int getMinimumHeight() {
+		return 0;
+	}
+
+	@Override
+	public int getMaximumWidth() {
+		return 0;
+	}
+
+	@Override
+	public int getMaximumHeight() {
 		return 0;
 	}
 }

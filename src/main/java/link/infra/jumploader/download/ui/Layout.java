@@ -4,6 +4,12 @@ import java.util.Arrays;
 import java.util.Collection;
 
 public interface Layout extends Collection<Component>, Component {
+	enum Growth {
+		ALWAYS,
+		SOMETIMES,
+		NEVER
+	}
+
 	@Override
 	default void init() {
 		for (Component component : this) {

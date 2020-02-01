@@ -55,12 +55,12 @@ public class Rectangle implements Component {
 	}
 
 	@Override
-	public int getPreferredWidth() {
+	public int getMinimumWidth() {
 		return width == -1 ? parentWidth : width;
 	}
 
 	@Override
-	public int getPreferredHeight() {
+	public int getMinimumHeight() {
 		return height == -1 ? parentHeight : height;
 	}
 }

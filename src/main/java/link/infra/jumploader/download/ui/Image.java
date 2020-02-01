@@ -128,12 +128,22 @@ public class Image implements Component {
 	}
 
 	@Override
-	public int getPreferredWidth() {
+	public int getMinimumWidth() {
 		return width;
 	}
 
 	@Override
-	public int getPreferredHeight() {
+	public int getMinimumHeight() {
 		return height;
+	}
+
+	@Override
+	public int getMaximumWidth() {
+		return 0;
+	}
+
+	@Override
+	public int getMaximumHeight() {
+		return 0;
 	}
 }

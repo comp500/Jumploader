@@ -52,12 +52,12 @@ public class Container implements Component {
 	}
 
 	@Override
-	public int getPreferredWidth() {
-		return component.getPreferredWidth();
+	public int getMinimumWidth() {
+		return component.getMinimumWidth();
 	}
 
 	@Override
-	public int getPreferredHeight() {
-		return component.getPreferredHeight();
+	public int getMinimumHeight() {
+		return component.getMinimumHeight();
 	}
 }

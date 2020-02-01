@@ -5,6 +5,8 @@ public interface Component {
 	void render();
 	void free();
 	void updateSize(int width, int height);
-	int getPreferredWidth();
-	int getPreferredHeight();
+	int getMinimumWidth();
+	int getMinimumHeight();
+	int getMaximumWidth();
+	int getMaximumHeight();
 }
