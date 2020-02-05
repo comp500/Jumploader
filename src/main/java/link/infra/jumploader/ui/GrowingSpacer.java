@@ -1,4 +1,4 @@
-package link.infra.jumploader.download.ui;
+package link.infra.jumploader.ui;
 
 public class GrowingSpacer implements Component {
 	private final Direction direction;

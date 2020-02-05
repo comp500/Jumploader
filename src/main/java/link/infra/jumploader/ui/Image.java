@@ -1,4 +1,4 @@
-package link.infra.jumploader.download.ui;
+package link.infra.jumploader.ui;
 
 import org.lwjgl.opengl.GL11;
 import org.lwjgl.opengl.GL12;

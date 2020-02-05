@@ -1,4 +1,4 @@
-package link.infra.jumploader.download.ui;
+package link.infra.jumploader.ui;
 
 import link.infra.jumploader.util.SortedIterable;
 import org.lwjgl.opengl.GL11;

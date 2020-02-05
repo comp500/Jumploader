@@ -1,4 +1,4 @@
-package link.infra.jumploader.download.ui;
+package link.infra.jumploader.ui;
 
 public class ReasonableAdaptiveWidthContainer extends DirectionConstraintContainer {
 	/**

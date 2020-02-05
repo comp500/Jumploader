@@ -1,42 +1,51 @@
 package link.infra.jumploader;
 
+import com.google.gson.JsonParseException;
 import cpw.mods.modlauncher.ArgumentHandler;
 import cpw.mods.modlauncher.Launcher;
 import cpw.mods.modlauncher.api.IEnvironment;
 import cpw.mods.modlauncher.api.ITransformationService;
 import cpw.mods.modlauncher.api.ITransformer;
-import link.infra.jumploader.download.DownloadManager;
+import link.infra.jumploader.reflectionhacks.ReflectionHack;
+import link.infra.jumploader.resources.EnvironmentDiscoverer;
+import link.infra.jumploader.resources.ParsedArguments;
+import link.infra.jumploader.resources.ResolvableJar;
+import link.infra.jumploader.ui.GUIManager;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
 import javax.annotation.Nonnull;
-import java.io.*;
+import java.io.File;
+import java.io.IOException;
 import java.lang.reflect.Field;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.net.MalformedURLException;
 import java.net.URL;
 import java.net.URLClassLoader;
-import java.net.URLStreamHandler;
-import java.nio.file.spi.FileSystemProvider;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.*;
-import java.util.stream.Collectors;
 
 public class Jumploader implements ITransformationService {
-	private Logger LOGGER = LogManager.getLogger();
+	public static final String VERSION = "1.0.0";
+	public static final String USER_AGENT = "Jumploader/" + VERSION;
+
+	private final Logger LOGGER = LogManager.getLogger();
 
 	private static class IgnoreForgeClassLoader extends URLClassLoader {
-		private Logger LOGGER = LogManager.getLogger();
+		private final Logger LOGGER = LogManager.getLogger();
 
 		public IgnoreForgeClassLoader(URL[] urls) {
 			super(urls);
 		}
 
-		private static File jarFileFromUrl(URL jarUrl) {
+		private static Path jarFileFromUrl(URL jarUrl) {
 			String path = jarUrl.getFile();
 			// Get the path to the jar from the jar path
 			path = path.replace("file:", "").split("!")[0];
-			return new File(path);
+			return Paths.get(path);
 		}
 
 		@Override
@@ -51,9 +60,9 @@ public class Jumploader implements ITransformationService {
 				// Find the Forge JAR (this should be second in the list) and replace it with the Vanilla JAR (first in the list)
 				if (resList.size() >= 2) {
 					String[] classPath = System.getProperty("java.class.path").split(File.pathSeparator);
-					File origFile = jarFileFromUrl(resList.get(1));
+					Path origFile = jarFileFromUrl(resList.get(1));
 					for (int i = 0; i < classPath.length; i++) {
-						if (new File(classPath[i]).equals(origFile)) {
+						if (Files.isSameFile(Paths.get(classPath[i]), origFile)) {
 							classPath[i] = jarFileFromUrl(resList.get(0)).toString();
 							LOGGER.debug("Replacing " + origFile.toString() + " with " + classPath[i] + " in java.class.path property");
 						}
@@ -105,40 +114,9 @@ public class Jumploader implements ITransformationService {
 		return (T) field.get(destObj);
 	}
 
-	// TODO: refactor to a separate class?
-	private static void reloadFSHandlers(ClassLoader classLoader) throws NoSuchFieldException, IllegalAccessException {
-		// Attempt to load the jimfs protocol handler (required for jar-in-jar) by hacking around the system classloader
-		Field scl = ClassLoader.class.getDeclaredField("scl");
-		scl.setAccessible(true);
-		ClassLoader existingLoader = (ClassLoader) scl.get(null);
-		scl.set(null, classLoader);
-
-		// Force FileSystemProvider to re-enumerate installed providers
-		Field installedProviders = FileSystemProvider.class.getDeclaredField("installedProviders");
-		installedProviders.setAccessible(true);
-		installedProviders.set(null, null);
-		Field loadingProviders = FileSystemProvider.class.getDeclaredField("loadingProviders");
-		loadingProviders.setAccessible(true);
-		loadingProviders.set(null, false);
-		FileSystemProvider.installedProviders();
-
-		// Set the system classloader back to the actual system classloader
-		scl.set(null, existingLoader);
-	}
-
-	@SuppressWarnings("unchecked")
-	private static void injectJimfsHandler(ClassLoader classLoader) throws NoSuchFieldException, IllegalAccessException, ClassCastException, ClassNotFoundException, InstantiationException {
-		// Add the jimfs handler to the URL handlers field, because Class.forName by default uses the classloader that loaded the calling class (in this case the system classloader, so we have to do it manually)
-		Field handlersField = URL.class.getDeclaredField("handlers");
-		handlersField.setAccessible(true);
-		Hashtable<String, URLStreamHandler> handlers = (Hashtable<String, URLStreamHandler>) handlersField.get(null);
-		handlers.putIfAbsent("jimfs", (URLStreamHandler) Class.forName("com.google.common.jimfs.Handler", true, classLoader).newInstance());
-	}
-
 	@Override
 	public void onLoad(@Nonnull IEnvironment env, @Nonnull Set<String> set) {
-		DownloadManager manager = new DownloadManager();
-		manager.download();
+		LOGGER.info("Jumploader " + VERSION + " initialising, discovering environment...");
 
 		// Get the game arguments
 		String[] gameArgs;
@@ -155,44 +133,32 @@ public class Jumploader implements ITransformationService {
 			LOGGER.warn("Failed to retrieve game arguments, has modlauncher changed?", e);
 		}
 
-		File libsDir = new File("mods/jumploader");
-		if (!libsDir.exists()) {
-			if (!libsDir.mkdir()) {
-				throw new RuntimeException("Failed to create the jumploader directory");
-			}
+		ParsedArguments argsParsed = new ParsedArguments(gameArgs);
+		EnvironmentDiscoverer environmentDiscoverer = new EnvironmentDiscoverer(argsParsed);
+
+		LOGGER.info("Detected environment " + environmentDiscoverer.jarStorage.getClass().getCanonicalName() + " [Minecraft version " + argsParsed.mcVersion + "]");
+
+		ConfigFile config;
+		try {
+			config = ConfigFile.read(environmentDiscoverer.configFile);
+			config.saveIfDirty();
+		} catch (JsonParseException | IOException e) {
+			throw new RuntimeException("Failed to read config file", e);
 		}
 
-		LOGGER.info("Reading configuration...");
-		String mainClass = "net.fabricmc.loader.launch.knot.KnotClient";
-		File configFile = new File(libsDir, "jumploader.txt");
-		if (configFile.exists()) {
-			try (BufferedReader in = new BufferedReader(new InputStreamReader(new FileInputStream(configFile)))) {
-				List<String> configLines = in.lines().filter(s -> s.trim().length() > 0).collect(Collectors.toList());
-				for (String line : configLines) {
-					String[] parts = line.split("=");
-					if (parts.length != 2) {
-						LOGGER.warn("Invalid config line: " + line);
-						continue;
-					}
-					if (parts[0].trim().equalsIgnoreCase("mainClass")) {
-						mainClass = parts[1].trim();
-					} else {
-						LOGGER.warn("Invalid config line: " + line);
-					}
-				}
-			} catch (IOException e) {
-				throw new RuntimeException("Failed to read config file", e);
-			}
-		} else {
-			try (PrintStream out = new PrintStream(new FileOutputStream(configFile))) {
-				out.print("mainClass = " + mainClass);
-			} catch (FileNotFoundException e) {
-				throw new RuntimeException("Failed to write config file", e);
-			}
-		}
+		LOGGER.info("Configuration successfully loaded!");
 
-		LOGGER.info("Loading JARs from mods/jumploader/");
-		File[] jarList = libsDir.listFiles((file, name) -> !("jumploader.txt".equals(name)));
+		// TODO: check if minecraft version is valid, and if there are any configured jars (get fabric config otherwise!)
+		List<ResolvableJar> configuredJars = config.getConfiguredJars();
+
+		GUIManager guiManager = new GUIManager();
+		//DownloadManager manager = new DownloadManager(argsParsed, config, environmentDiscoverer);
+		//manager.download();
+
+		LOGGER.info("Loading JARs...");
+		// TODO: get list from configuration / resource loading magic
+		//File[] jarList = mainDir.listFiles((file, name) -> !("jumploader.txt".equals(name)));
+		File[] jarList = new File[0];
 		List<URL> loadURLs = new ArrayList<>();
 		if (jarList == null) {
 			throw new RuntimeException("No JARs found to jumpload!");
@@ -212,28 +178,28 @@ public class Jumploader implements ITransformationService {
 		URLClassLoader newLoader = new IgnoreForgeClassLoader(loadURLs.toArray(new URL[0]));
 		Thread.currentThread().setContextClassLoader(newLoader);
 
-		// Jimfs requires some funky hacks to load under a custom classloader, Java protocol handlers don't handle custom classloaders very well
-		try {
-			reloadFSHandlers(newLoader);
-			injectJimfsHandler(newLoader);
-		} catch (NoSuchFieldException | IllegalAccessException | ClassNotFoundException | InstantiationException | ClassCastException e) {
-			LOGGER.warn("Failed to fix jimfs loading, jar-in-jar may not work", e);
+		// Apply the reflection hacks (mainly to get Java to recognize jimfs)
+		for (ReflectionHack hack : ReflectionHack.HACKS) {
+			if (hack.hackApplies(loadURLs.toArray(new URL[0]))) {
+				hack.applyHack(newLoader);
+			}
 		}
 
-		LOGGER.info("Jumping to new loader, main class: " + mainClass);
+		LOGGER.info("Jumping to new loader, main class: " + config.launch.mainClass);
 		// Attempt to launch KnotClient with the classloader
 		Class<?> knotClient;
 		try {
-			knotClient = newLoader.loadClass(mainClass);
+			knotClient = newLoader.loadClass(config.launch.mainClass);
 		} catch (ClassNotFoundException e) {
-			throw new RuntimeException("Failed to load KnotClient (Fabric) from " + mainClass, e);
+			// TODO: make this exception depend on mainClass text
+			throw new RuntimeException("Failed to load KnotClient (Fabric) from " + config.launch.mainClass, e);
 		}
 		if (knotClient != null) {
 			try {
 				Method main = knotClient.getMethod("main", String[].class);
 				main.invoke(null, new Object[] {gameArgs});
 			} catch (NoSuchMethodException | IllegalAccessException e) {
-				throw new RuntimeException("Failed to invoke KnotClient (Fabric) from " + mainClass, e);
+				throw new RuntimeException("Failed to invoke KnotClient (Fabric) from " + config.launch.mainClass, e);
 			} catch (InvocationTargetException e) {
 				throw new RuntimeException(e.getTargetException());
 			}

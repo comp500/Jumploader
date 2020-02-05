@@ -1,4 +1,4 @@
-package link.infra.jumploader.download;
+package link.infra.jumploader;
 
 import java.util.HashMap;
 import java.util.List;
@@ -64,8 +64,8 @@ public class DownloadWorkerManager {
 			return failureException;
 		}
 
-		public synchronized boolean isDone() {
-			return done;
+		public synchronized boolean isIncomplete() {
+			return !done;
 		}
 	}
 
@@ -79,7 +79,7 @@ public class DownloadWorkerManager {
 	public void shutdown() {
 		threadMap.forEach((t, ts) -> {
 			t.interrupt();
-			if (ts.getFailureException() == null && !ts.isDone()) {
+			if (ts.getFailureException() == null && ts.isIncomplete()) {
 				ts.markFailed(new InterruptedException());
 			}
 		});
@@ -101,7 +101,7 @@ public class DownloadWorkerManager {
 
 	public boolean isDone() {
 		for (TaskStatus status : threadMap.values()) {
-			if (!status.isDone()) {
+			if (status.isIncomplete()) {
 				return false;
 			}
 		}

@@ -1,4 +1,4 @@
-package link.infra.jumploader.download;
+package link.infra.jumploader;
 
 /**
  * A DownloadWorker downloads one file, reporting its progress to the TaskStatus given

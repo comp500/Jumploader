@@ -1,4 +1,4 @@
-package link.infra.jumploader.download.ui;
+package link.infra.jumploader.ui;
 
 /**
  * Just in case you want spacing to work better. I guess... this is a badly designed GUI system. But I had fun!

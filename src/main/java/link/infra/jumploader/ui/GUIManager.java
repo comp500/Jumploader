@@ -1,4 +1,4 @@
-package link.infra.jumploader.download.ui;
+package link.infra.jumploader.ui;
 
 
 
@@ -49,7 +49,7 @@ public class GUIManager {
 		Window window = new Window(new ReasonableAdaptiveWidthContainer(
 			new DirectionLayout(Direction.VERTICAL, Alignment.CENTER, true).addChildren(
 				new EmptyComponent(),
-				new Image("splashlogo.png", false, true),
+				new Image("splashlogo.png"),
 				new FixedRectangle(200, 30, 0f, 0f, 0f),
 				new EmptyComponent()
 			)
