@@ -19,7 +19,7 @@ public class MavenJar extends ResolvableJar {
 	}
 
 	@Override
-	URL resolveLocal() throws FileNotFoundException {
+	public URL resolveLocal() throws FileNotFoundException {
 		Path jarPath = jarStorage.getMavenJar(mavenPath);
 		if (Files.exists(jarPath)) {
 			return pathToURL(jarPath);
@@ -28,9 +28,10 @@ public class MavenJar extends ResolvableJar {
 	}
 
 	@Override
-	URL resolveRemote(DownloadWorkerManager.TaskStatus status, ParsedArguments args) throws URISyntaxException, IOException {
+	public URL resolveRemote(DownloadWorkerManager.TaskStatus status, ParsedArguments args) throws URISyntaxException, IOException {
 		URL downloadUrl = resolveMavenPath(new URI(repoUrl), mavenPath).toURL();
-		downloadFile(status, downloadUrl, jarStorage.getMavenJar(mavenPath), is -> is);
-		return downloadUrl;
+		Path jarPath = jarStorage.getMavenJar(mavenPath);
+		downloadFile(status, downloadUrl, jarPath, is -> is);
+		return pathToURL(jarPath);
 	}
 }

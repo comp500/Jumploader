@@ -9,17 +9,18 @@ import java.util.List;
 
 public class EnvironmentDiscoverer {
 	public final Path configFile;
-	public final JarStorageLocation jarStorage;
+	public JarStorageLocation jarStorage;
+	private final Path gameDir;
 
 	public static class UnsupportedLocationException extends Exception {}
 
 	public interface JarStorageLocationConstructor<T extends JarStorageLocation> {
-		JarStorageLocation construct(Path gameDir) throws UnsupportedLocationException;
+		T construct(Path gameDir) throws UnsupportedLocationException;
 	}
 
 	public interface JarStorageLocation {
 		Path getMavenJar(String mavenPath);
-		Path getGameJar(String gameVersion);
+		Path getGameJar(String gameVersion, String downloadType);
 	}
 
 	private static Path resolveMavenPathOnDisk(Path baseDir, String mavenPath) {
@@ -28,7 +29,7 @@ public class EnvironmentDiscoverer {
 			throw new RuntimeException("Invalid maven path: " + mavenPath);
 		}
 		return baseDir
-			.resolve(Paths.get(".", mavenPathSplit[0].split("."))) // Group ID
+			.resolve(Paths.get(".", mavenPathSplit[0].split("\\."))) // Group ID
 			.resolve(mavenPathSplit[1]) // Artifact ID
 			.resolve(mavenPathSplit[2]) // Version
 			.resolve(mavenPathSplit[1] + "-" + mavenPathSplit[2] + ".jar");
@@ -57,8 +58,8 @@ public class EnvironmentDiscoverer {
 		}
 
 		@Override
-		public Path getGameJar(String gameVersion) {
-			return gameVersionsDir.resolve(gameVersion + ".jar");
+		public Path getGameJar(String gameVersion, String downloadType) {
+			return gameVersionsDir.resolve(downloadType).resolve(gameVersion + ".jar");
 		}
 	}
 
@@ -80,7 +81,10 @@ public class EnvironmentDiscoverer {
 		}
 
 		@Override
-		public Path getGameJar(String gameVersion) {
+		public Path getGameJar(String gameVersion, String downloadType) {
+			if (!downloadType.equals("client")) {
+				throw new RuntimeException("VanillaJarStorage doesn't support non-clientside, please enable forceFallbackStorage!");
+			}
 			return gameVersionsDir.resolve(Paths.get(gameVersion, gameVersion + ".jar"));
 		}
 	}
@@ -108,7 +112,10 @@ public class EnvironmentDiscoverer {
 		}
 
 		@Override
-		public Path getGameJar(String gameVersion) {
+		public Path getGameJar(String gameVersion, String downloadType) {
+			if (!downloadType.equals("client")) {
+				throw new RuntimeException("TwitchJarStorage doesn't support non-clientside, please enable forceFallbackStorage!");
+			}
 			return gameVersionsDir.resolve(Paths.get(gameVersion, gameVersion + ".jar"));
 		}
 	}
@@ -128,16 +135,20 @@ public class EnvironmentDiscoverer {
 		}
 		configFile = configDir.resolve("jumploader.json");
 
-		JarStorageLocation temp = null;
+		this.gameDir = args.gameDir;
+
 		for (JarStorageLocationConstructor<?> constructor : locations) {
 			try {
-				temp = constructor.construct(args.gameDir);
+				jarStorage = constructor.construct(args.gameDir);
 				break;
 			} catch (UnsupportedLocationException ignored) {}
 		}
-		if (temp == null) {
+		if (jarStorage == null) {
 			throw new RuntimeException("Failed to find a matching environment!");
 		}
-		jarStorage = temp;
+	}
+
+	public void forceFallbackStorage() {
+		jarStorage = new FallbackJarStorage(gameDir);
 	}
 }

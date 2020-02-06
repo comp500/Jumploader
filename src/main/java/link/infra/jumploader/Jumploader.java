@@ -6,27 +6,32 @@ import cpw.mods.modlauncher.Launcher;
 import cpw.mods.modlauncher.api.IEnvironment;
 import cpw.mods.modlauncher.api.ITransformationService;
 import cpw.mods.modlauncher.api.ITransformer;
-import link.infra.jumploader.reflectionhacks.ReflectionHack;
 import link.infra.jumploader.resources.EnvironmentDiscoverer;
 import link.infra.jumploader.resources.ParsedArguments;
 import link.infra.jumploader.resources.ResolvableJar;
-import link.infra.jumploader.ui.GUIManager;
+import link.infra.jumploader.specialcases.ClassBlacklist;
+import link.infra.jumploader.specialcases.ReflectionHack;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
 import javax.annotation.Nonnull;
 import java.io.File;
+import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.lang.reflect.Field;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
-import java.net.MalformedURLException;
+import java.net.URI;
+import java.net.URISyntaxException;
 import java.net.URL;
 import java.net.URLClassLoader;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.*;
+import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.LinkedBlockingQueue;
+import java.util.stream.Collectors;
 
 public class Jumploader implements ITransformationService {
 	public static final String VERSION = "1.0.0";
@@ -36,21 +41,24 @@ public class Jumploader implements ITransformationService {
 
 	private static class IgnoreForgeClassLoader extends URLClassLoader {
 		private final Logger LOGGER = LogManager.getLogger();
+		private final List<ClassBlacklist> blacklists;
 
-		public IgnoreForgeClassLoader(URL[] urls) {
+		public IgnoreForgeClassLoader(URL[] urls, List<ClassBlacklist> blacklists) {
 			super(urls);
+			this.blacklists = blacklists;
 		}
 
-		private static Path jarFileFromUrl(URL jarUrl) {
+		private static Path jarFileFromUrl(URL jarUrl) throws URISyntaxException {
 			String path = jarUrl.getFile();
 			// Get the path to the jar from the jar path
-			path = path.replace("file:", "").split("!")[0];
-			return Paths.get(path);
+			path = path.split("!")[0];
+			return Paths.get(new URI(path));
 		}
 
 		@Override
 		public Enumeration<URL> getResources(String name) throws IOException {
 			ArrayList<URL> resList = Collections.list(super.getResources(name));
+			// TODO: refactor this functionality into a specialcase
 			if (name.contains("net/minecraft/client/main/Main")) {
 				LOGGER.debug("Found " + resList.size() + " Main classes, attempting to prioritize Jumploaded Vanilla JAR");
 
@@ -58,16 +66,20 @@ public class Jumploader implements ITransformationService {
 				Collections.reverse(resList);
 
 				// Find the Forge JAR (this should be second in the list) and replace it with the Vanilla JAR (first in the list)
-				if (resList.size() >= 2) {
-					String[] classPath = System.getProperty("java.class.path").split(File.pathSeparator);
-					Path origFile = jarFileFromUrl(resList.get(1));
-					for (int i = 0; i < classPath.length; i++) {
-						if (Files.isSameFile(Paths.get(classPath[i]), origFile)) {
-							classPath[i] = jarFileFromUrl(resList.get(0)).toString();
-							LOGGER.debug("Replacing " + origFile.toString() + " with " + classPath[i] + " in java.class.path property");
+				try {
+					if (resList.size() >= 2) {
+						String[] classPath = System.getProperty("java.class.path").split(File.pathSeparator);
+						Path origFile = jarFileFromUrl(resList.get(1));
+						for (int i = 0; i < classPath.length; i++) {
+							if (Files.isSameFile(Paths.get(classPath[i]), origFile)) {
+								classPath[i] = jarFileFromUrl(resList.get(0)).toString();
+								LOGGER.debug("Replacing " + origFile.toString() + " with " + classPath[i] + " in java.class.path property");
+							}
 						}
+						System.setProperty("java.class.path", String.join(File.pathSeparator, classPath));
 					}
-					System.setProperty("java.class.path", String.join(File.pathSeparator, classPath));
+				} catch (URISyntaxException e) {
+					LOGGER.error("Failed to replace java.class.path", e);
 				}
 
 				if (resList.size() > 2) {
@@ -88,6 +100,16 @@ public class Jumploader implements ITransformationService {
 			} else {
 				return super.getResource(name);
 			}
+		}
+
+		@Override
+		protected Class<?> loadClass(String name, boolean resolve) throws ClassNotFoundException {
+			for (ClassBlacklist blacklist : blacklists) {
+				if (blacklist.shouldBlacklistClass(name)) {
+					throw new ClassNotFoundException();
+				}
+			}
+			return super.loadClass(name, resolve);
 		}
 	}
 
@@ -140,7 +162,7 @@ public class Jumploader implements ITransformationService {
 
 		ConfigFile config;
 		try {
-			config = ConfigFile.read(environmentDiscoverer.configFile);
+			config = ConfigFile.read(environmentDiscoverer);
 			config.saveIfDirty();
 		} catch (JsonParseException | IOException e) {
 			throw new RuntimeException("Failed to read config file", e);
@@ -150,37 +172,68 @@ public class Jumploader implements ITransformationService {
 
 		// TODO: check if minecraft version is valid, and if there are any configured jars (get fabric config otherwise!)
 		List<ResolvableJar> configuredJars = config.getConfiguredJars();
+		BlockingQueue<ResolvableJar> downloadRequiredJars = new LinkedBlockingQueue<>();
+		BlockingQueue<URL> loadUrlstest = new LinkedBlockingQueue<>();
+		List<URL> loadUrls = new ArrayList<>();
 
-		GUIManager guiManager = new GUIManager();
-		//DownloadManager manager = new DownloadManager(argsParsed, config, environmentDiscoverer);
-		//manager.download();
+		// Resolve all the JARs locally
+		for (ResolvableJar jar : configuredJars) {
+			try {
+				URL resolvedUrl = jar.resolveLocal();
+				loadUrlstest.add(resolvedUrl);
+			} catch (FileNotFoundException e) {
+				downloadRequiredJars.add(jar);
+			}
+		}
+
+		// TODO: move to GUI and download worker manager stuff
+		DownloadWorkerManager workerManager = new DownloadWorkerManager();
+		while (!downloadRequiredJars.isEmpty()) {
+			ResolvableJar downloadJar = downloadRequiredJars.remove();
+			workerManager.queueWorker(status -> {
+				try {
+					// TODO: get this value!! executorservice
+					loadUrlstest.put(downloadJar.resolveRemote(status, argsParsed));
+				} catch (Exception e) {
+					status.markFailed(e);
+					return;
+				}
+				status.markCompleted();
+			});
+		}
+
+		// haha yes very good wait loop
+		while (!workerManager.isDone()) {
+			try {
+				Thread.sleep(500);
+				System.out.println(workerManager.getWorkerProgress());
+			} catch (InterruptedException e) {
+				e.printStackTrace();
+			}
+		}
+		// TODO: cleanup
+		for (Exception ex : workerManager.getExceptions()) {
+			throw new RuntimeException(ex);
+		}
+
+		//GUIManager guiManager = new GUIManager();
 
 		LOGGER.info("Loading JARs...");
 		// TODO: get list from configuration / resource loading magic
-		//File[] jarList = mainDir.listFiles((file, name) -> !("jumploader.txt".equals(name)));
-		File[] jarList = new File[0];
-		List<URL> loadURLs = new ArrayList<>();
-		if (jarList == null) {
-			throw new RuntimeException("No JARs found to jumpload!");
-		}
-		for (File jar : jarList) {
-			URL loadableURL;
-			try {
-				loadableURL = jar.toURI().toURL();
-			} catch (MalformedURLException e) {
-				throw new RuntimeException("Failed to load JAR, malformed URL", e);
-			}
-			LOGGER.info("Found JAR: " + loadableURL);
-			loadURLs.add(loadableURL);
+		for (URL jarUrl : loadUrlstest) {
+			LOGGER.info("Found JAR: " + jarUrl);
+			loadUrls.add(jarUrl);
 		}
 
+		List<ClassBlacklist> appliedBlacklists = ClassBlacklist.BLACKLISTS.stream().filter(bl -> bl.shouldApply(loadUrls, config.launch.mainClass)).collect(Collectors.toList());
+
 		// Create the classloader with the found JARs
-		URLClassLoader newLoader = new IgnoreForgeClassLoader(loadURLs.toArray(new URL[0]));
+		URLClassLoader newLoader = new IgnoreForgeClassLoader(loadUrls.toArray(new URL[0]), appliedBlacklists);
 		Thread.currentThread().setContextClassLoader(newLoader);
 
 		// Apply the reflection hacks (mainly to get Java to recognize jimfs)
 		for (ReflectionHack hack : ReflectionHack.HACKS) {
-			if (hack.hackApplies(loadURLs.toArray(new URL[0]))) {
+			if (hack.shouldApply(loadUrls, config.launch.mainClass)) {
 				hack.applyHack(newLoader);
 			}
 		}

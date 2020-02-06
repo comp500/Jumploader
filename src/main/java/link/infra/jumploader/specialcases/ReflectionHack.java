@@ -1,12 +1,10 @@
-package link.infra.jumploader.reflectionhacks;
+package link.infra.jumploader.specialcases;
 
-import java.net.URL;
 import java.util.Collections;
 import java.util.List;
 
-public interface ReflectionHack {
+public interface ReflectionHack extends SpecialCase {
 	void applyHack(ClassLoader loadingClassloader);
-	boolean hackApplies(URL[] loadedJars);
 
 	List<ReflectionHack> HACKS = Collections.singletonList(new FabricLoaderReflectionHack());
 }

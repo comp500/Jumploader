@@ -1,4 +1,4 @@
-package link.infra.jumploader.reflectionhacks;
+package link.infra.jumploader.specialcases;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -8,6 +8,7 @@ import java.net.URL;
 import java.net.URLStreamHandler;
 import java.nio.file.spi.FileSystemProvider;
 import java.util.Hashtable;
+import java.util.List;
 import java.util.regex.Pattern;
 
 public class FabricLoaderReflectionHack implements ReflectionHack {
@@ -54,13 +55,8 @@ public class FabricLoaderReflectionHack implements ReflectionHack {
 	}
 
 	@Override
-	public boolean hackApplies(URL[] loadedJars) {
-		Pattern hackTest = Pattern.compile("fabric-loader-(.+).jar$");
-		for (URL jar : loadedJars) {
-			if (hackTest.matcher(jar.toString()).matches()) {
-				return true;
-			}
-		}
-		return false;
+	public boolean shouldApply(List<URL> loadedJars, String mainClass) {
+		Pattern hackTest = Pattern.compile("fabric-loader-(.+)\\.jar$");
+		return RegexUtil.patternMatchesJars(hackTest, loadedJars);
 	}
 }

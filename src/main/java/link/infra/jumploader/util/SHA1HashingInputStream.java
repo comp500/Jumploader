@@ -32,7 +32,8 @@ public class SHA1HashingInputStream extends FilterInputStream {
 		super(inputStream);
 		try {
 			this.compareToHash = Hex.decodeHex(compareToHash.toCharArray());
-			this.digest = MessageDigest.getInstance("SHA-1");
+			digest = MessageDigest.getInstance("SHA-1");
+			digest.reset();
 		} catch (NoSuchAlgorithmException | DecoderException e) {
 			throw new RuntimeException(e);
 		}
@@ -52,7 +53,7 @@ public class SHA1HashingInputStream extends FilterInputStream {
 	public int read(@Nonnull byte[] b, int off, int len) throws IOException {
 		int bytesRead = super.read(b, off, len);
 		if (bytesRead > 0) {
-			digest.update(b, off, len);
+			digest.update(b, off, bytesRead);
 		}
 		return bytesRead;
 	}
@@ -72,12 +73,17 @@ public class SHA1HashingInputStream extends FilterInputStream {
 		// Do nothing
 	}
 
+	private boolean alreadyClosed = false;
+
 	@Override
 	public void close() throws IOException {
 		super.close();
-		byte[] result = digest.digest();
-		if (!Arrays.equals(result, compareToHash)) {
-			throw new InvalidHashException(Hex.encodeHexString(result));
+		if (!alreadyClosed) {
+			alreadyClosed = true;
+			byte[] result = digest.digest();
+			if (!Arrays.equals(result, compareToHash)) {
+				throw new InvalidHashException(Hex.encodeHexString(result));
+			}
 		}
 	}
 }

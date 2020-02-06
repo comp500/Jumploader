@@ -74,11 +74,11 @@ public class ParsedArguments {
 		try {
 			String value = arguments.get(key);
 			if (value == null) {
-				return 0;
+				return def;
 			}
 			return Integer.parseInt(value);
 		} catch (NumberFormatException e) {
-			return 0;
+			return def;
 		}
 	}
 }
