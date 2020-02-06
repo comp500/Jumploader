@@ -6,12 +6,12 @@ import cpw.mods.modlauncher.Launcher;
 import cpw.mods.modlauncher.api.IEnvironment;
 import cpw.mods.modlauncher.api.ITransformationService;
 import cpw.mods.modlauncher.api.ITransformer;
+import link.infra.jumploader.meta.AutoconfHandler;
 import link.infra.jumploader.resources.EnvironmentDiscoverer;
 import link.infra.jumploader.resources.ParsedArguments;
 import link.infra.jumploader.resources.ResolvableJar;
 import link.infra.jumploader.specialcases.ClassBlacklist;
 import link.infra.jumploader.specialcases.ReflectionHack;
-import link.infra.jumploader.ui.GUIManager;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
@@ -169,9 +169,20 @@ public class Jumploader implements ITransformationService {
 			throw new RuntimeException("Failed to read config file", e);
 		}
 
-		LOGGER.info("Configuration successfully loaded!");
+		LOGGER.info("Configuration successfully loaded! Updating configuration if necessary...");
 
-		// TODO: check if minecraft version is valid, and if there are any configured jars (get fabric config otherwise!)
+		if (config.autoconfig != null && config.autoconfig.enable) {
+			AutoconfHandler autoconfHandler = AutoconfHandler.HANDLERS.get(config.autoconfig.handler);
+			autoconfHandler.updateConfig(config, argsParsed, environmentDiscoverer);
+			try {
+				config.saveIfDirty();
+			} catch (IOException e) {
+				throw new RuntimeException("Failed to save the configuration", e);
+			}
+		}
+
+		LOGGER.info("Configuration up to date!");
+
 		List<ResolvableJar> configuredJars = config.getConfiguredJars();
 		BlockingQueue<ResolvableJar> downloadRequiredJars = new LinkedBlockingQueue<>();
 		BlockingQueue<URL> loadUrlstest = new LinkedBlockingQueue<>();
@@ -187,7 +198,7 @@ public class Jumploader implements ITransformationService {
 			}
 		}
 
-		new GUIManager();
+		//new GUIManager();
 
 		// TODO: move to GUI and download worker manager stuff
 		DownloadWorkerManager workerManager = new DownloadWorkerManager();

@@ -18,6 +18,12 @@ public class MavenJar extends ResolvableJar {
 		super(jarStorage);
 	}
 
+	public MavenJar(EnvironmentDiscoverer.JarStorageLocation jarStorage, String mavenPath, String repoUrl) {
+		super(jarStorage);
+		this.mavenPath = mavenPath;
+		this.repoUrl = repoUrl;
+	}
+
 	@Override
 	public URL resolveLocal() throws FileNotFoundException {
 		Path jarPath = jarStorage.getMavenJar(mavenPath);

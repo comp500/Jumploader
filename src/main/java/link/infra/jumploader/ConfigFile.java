@@ -15,7 +15,6 @@ import java.io.OutputStreamWriter;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.List;
 
 @SuppressWarnings("CanBeFinal")
@@ -25,20 +24,26 @@ public class ConfigFile {
 
 	// TODO: implement
 	public boolean downloadRequiredFiles = true;
-	// TODO: implement
-	public boolean updateFabricIfLoadedGameIsOld = true;
 	// Force EnvironmentDiscoverer to use FallbackJarStorage, e.g. for running server installs
 	public boolean forceFallbackStorage = false;
 	public LaunchOptions launch = new LaunchOptions();
 	public JarOptions jars = new JarOptions();
+	public AutoconfOptions autoconfig = new AutoconfOptions();
 
 	public static class LaunchOptions {
 		public String mainClass = "net.fabricmc.loader.launch.knot.KnotClient";
 	}
 
 	public static class JarOptions {
-		public MinecraftJar[] minecraft = new MinecraftJar[0];
-		public MavenJar[] maven = new MavenJar[0];
+		public List<MinecraftJar> minecraft = new ArrayList<>();
+		public List<MavenJar> maven = new ArrayList<>();
+	}
+
+	public static class AutoconfOptions {
+		public boolean enable = true;
+		public String handler = "fabric";
+		public boolean forceUpdate = false;
+		public String side = "client";
 	}
 
 	private ConfigFile(Path destFile) {
@@ -85,12 +90,32 @@ public class ConfigFile {
 		List<ResolvableJar> jarList = new ArrayList<>();
 		if (jars != null) {
 			if (jars.minecraft != null) {
-				jarList.addAll(Arrays.asList(jars.minecraft));
+				jarList.addAll(jars.minecraft);
 			}
 			if (jars.maven != null) {
-				jarList.addAll(Arrays.asList(jars.maven));
+				jarList.addAll(jars.maven);
 			}
 		}
 		return jarList;
+	}
+
+	public void resetConfiguredJars() {
+		dirty = true;
+		if (jars != null) {
+			if (jars.minecraft != null) {
+				jars.minecraft.clear();
+			} else {
+				jars.minecraft = new ArrayList<>();
+			}
+			if (jars.maven != null) {
+				jars.maven.clear();
+			} else {
+				jars.maven = new ArrayList<>();
+			}
+		} else {
+			jars = new JarOptions();
+			jars.minecraft = new ArrayList<>();
+			jars.maven = new ArrayList<>();
+		}
 	}
 }

@@ -1,7 +1,7 @@
 package link.infra.jumploader.resources;
 
 import link.infra.jumploader.DownloadWorkerManager;
-import link.infra.jumploader.meta.minecraft.MinecraftDownloadApi;
+import link.infra.jumploader.meta.MinecraftDownloadApi;
 import link.infra.jumploader.util.SHA1HashingInputStream;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -19,6 +19,14 @@ public class MinecraftJar extends ResolvableJar {
 
 	public MinecraftJar(EnvironmentDiscoverer.JarStorageLocation jarStorage) {
 		super(jarStorage);
+	}
+
+	public MinecraftJar(EnvironmentDiscoverer.JarStorageLocation jarStorage, String gameVersion, String downloadType) {
+		super(jarStorage);
+		this.gameVersion = gameVersion;
+		if (downloadType != null) {
+			this.downloadType = downloadType;
+		}
 	}
 
 	@Override

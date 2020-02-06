@@ -1,4 +1,4 @@
-package link.infra.jumploader.meta.minecraft;
+package link.infra.jumploader.meta;
 
 import com.google.gson.Gson;
 import com.google.gson.JsonArray;
