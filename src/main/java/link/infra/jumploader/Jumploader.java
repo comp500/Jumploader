@@ -11,6 +11,7 @@ import link.infra.jumploader.resources.ParsedArguments;
 import link.infra.jumploader.resources.ResolvableJar;
 import link.infra.jumploader.specialcases.ClassBlacklist;
 import link.infra.jumploader.specialcases.ReflectionHack;
+import link.infra.jumploader.ui.GUIManager;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
@@ -185,6 +186,8 @@ public class Jumploader implements ITransformationService {
 				downloadRequiredJars.add(jar);
 			}
 		}
+
+		new GUIManager();
 
 		// TODO: move to GUI and download worker manager stuff
 		DownloadWorkerManager workerManager = new DownloadWorkerManager();
