@@ -12,6 +12,7 @@ import link.infra.jumploader.resources.ParsedArguments;
 import link.infra.jumploader.resources.ResolvableJar;
 import link.infra.jumploader.specialcases.ClassBlacklist;
 import link.infra.jumploader.specialcases.ReflectionHack;
+import link.infra.jumploader.ui.GUIManager;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
@@ -60,7 +61,7 @@ public class Jumploader implements ITransformationService {
 		public Enumeration<URL> getResources(String name) throws IOException {
 			ArrayList<URL> resList = Collections.list(super.getResources(name));
 			// TODO: refactor this functionality into a specialcase
-			if (name.contains("net/minecraft/client/main/Main")) {
+			if (name.contains("net/minecraft/client/main/Main") || name.contains("net/minecraft/server/MinecraftServer")) {
 				LOGGER.debug("Found " + resList.size() + " Main classes, attempting to prioritize Jumploaded Vanilla JAR");
 
 				// If this is the main class, reverse the order (so the child JARs are used first) and replace the system property
@@ -92,7 +93,7 @@ public class Jumploader implements ITransformationService {
 
 		@Override
 		public URL getResource(String name) {
-			if (name.contains("net/minecraft/client/main/Main")) {
+			if (name.contains("net/minecraft/client/main/Main") || name.contains("net/minecraft/server/MinecraftServer")) {
 				try {
 					return getResources(name).nextElement();
 				} catch (IOException | NoSuchElementException e) {
@@ -156,9 +157,9 @@ public class Jumploader implements ITransformationService {
 			LOGGER.warn("Failed to retrieve game arguments, has modlauncher changed?", e);
 		}
 
+		// Parse the arguments, detect the environment
 		ParsedArguments argsParsed = new ParsedArguments(gameArgs);
 		EnvironmentDiscoverer environmentDiscoverer = new EnvironmentDiscoverer(argsParsed);
-
 		LOGGER.info("Detected environment " + environmentDiscoverer.jarStorage.getClass().getCanonicalName() + " [Minecraft version " + argsParsed.mcVersion + "]");
 
 		ConfigFile config;
@@ -169,9 +170,9 @@ public class Jumploader implements ITransformationService {
 			throw new RuntimeException("Failed to read config file", e);
 		}
 
-		LOGGER.info("Configuration successfully loaded! Updating configuration if necessary...");
-
+		// Call the configured autoconfig handler
 		if (config.autoconfig != null && config.autoconfig.enable) {
+			LOGGER.info("Configuration successfully loaded! Updating configuration from handler: " + config.autoconfig.handler);
 			AutoconfHandler autoconfHandler = AutoconfHandler.HANDLERS.get(config.autoconfig.handler);
 			autoconfHandler.updateConfig(config, argsParsed, environmentDiscoverer);
 			try {
@@ -179,64 +180,15 @@ public class Jumploader implements ITransformationService {
 			} catch (IOException e) {
 				throw new RuntimeException("Failed to save the configuration", e);
 			}
+			LOGGER.info("Configuration up to date! Resolving JARs to jumpload...");
+		} else {
+			LOGGER.info("Configuration successfully loaded! Resolving JARs to jumpload...");
 		}
 
-		LOGGER.info("Configuration up to date!");
+		List<URL> loadUrls = resolveJars(config, argsParsed);
 
-		List<ResolvableJar> configuredJars = config.getConfiguredJars();
-		BlockingQueue<ResolvableJar> downloadRequiredJars = new LinkedBlockingQueue<>();
-		BlockingQueue<URL> loadUrlstest = new LinkedBlockingQueue<>();
-		List<URL> loadUrls = new ArrayList<>();
-
-		// Resolve all the JARs locally
-		for (ResolvableJar jar : configuredJars) {
-			try {
-				URL resolvedUrl = jar.resolveLocal();
-				loadUrlstest.add(resolvedUrl);
-			} catch (FileNotFoundException e) {
-				downloadRequiredJars.add(jar);
-			}
-		}
-
-		//new GUIManager();
-
-		// TODO: move to GUI and download worker manager stuff
-		DownloadWorkerManager workerManager = new DownloadWorkerManager();
-		while (!downloadRequiredJars.isEmpty()) {
-			ResolvableJar downloadJar = downloadRequiredJars.remove();
-			workerManager.queueWorker(status -> {
-				try {
-					// TODO: get this value!! executorservice
-					loadUrlstest.put(downloadJar.resolveRemote(status, argsParsed));
-				} catch (Exception e) {
-					status.markFailed(e);
-					return;
-				}
-				status.markCompleted();
-			});
-		}
-
-		// haha yes very good wait loop
-		while (!workerManager.isDone()) {
-			try {
-				Thread.sleep(500);
-				System.out.println(workerManager.getWorkerProgress());
-			} catch (InterruptedException e) {
-				e.printStackTrace();
-			}
-		}
-		// TODO: cleanup
-		for (Exception ex : workerManager.getExceptions()) {
-			throw new RuntimeException(ex);
-		}
-
-		//GUIManager guiManager = new GUIManager();
-
-		LOGGER.info("Loading JARs...");
-		// TODO: get list from configuration / resource loading magic
-		for (URL jarUrl : loadUrlstest) {
+		for (URL jarUrl : loadUrls) {
 			LOGGER.info("Found JAR: " + jarUrl);
-			loadUrls.add(jarUrl);
 		}
 
 		List<ClassBlacklist> appliedBlacklists = ClassBlacklist.BLACKLISTS.stream().filter(bl -> bl.shouldApply(loadUrls, config.launch.mainClass)).collect(Collectors.toList());
@@ -253,24 +205,102 @@ public class Jumploader implements ITransformationService {
 		}
 
 		LOGGER.info("Jumping to new loader, main class: " + config.launch.mainClass);
-		// Attempt to launch KnotClient with the classloader
-		Class<?> knotClient;
+		// Attempt to launch mainClass with the classloader
+		Class<?> mainClass;
 		try {
-			knotClient = newLoader.loadClass(config.launch.mainClass);
+			mainClass = newLoader.loadClass(config.launch.mainClass);
 		} catch (ClassNotFoundException e) {
-			// TODO: make this exception depend on mainClass text
-			throw new RuntimeException("Failed to load KnotClient (Fabric) from " + config.launch.mainClass, e);
+			if (config.launch.mainClass.contains("Knot")) {
+				throw new RuntimeException("Failed to load " +
+					config.launch.mainClass.substring(config.launch.mainClass.lastIndexOf(".") + 1) +
+					" (Fabric) from " + config.launch.mainClass, e);
+			}
+			throw new RuntimeException("Failed to load " +
+				config.launch.mainClass.substring(config.launch.mainClass.lastIndexOf(".") + 1) +
+				" from " + config.launch.mainClass, e);
 		}
-		if (knotClient != null) {
+		if (mainClass != null) {
 			try {
-				Method main = knotClient.getMethod("main", String[].class);
+				Method main = mainClass.getMethod("main", String[].class);
 				main.invoke(null, new Object[] {gameArgs});
 			} catch (NoSuchMethodException | IllegalAccessException e) {
-				throw new RuntimeException("Failed to invoke KnotClient (Fabric) from " + config.launch.mainClass, e);
+				if (config.launch.mainClass.contains("Knot")) {
+					throw new RuntimeException("Failed to invoke " +
+						config.launch.mainClass.substring(config.launch.mainClass.lastIndexOf(".") + 1) +
+						" (Fabric) from " + config.launch.mainClass, e);
+				}
+				throw new RuntimeException("Failed to invoke " +
+					config.launch.mainClass.substring(config.launch.mainClass.lastIndexOf(".") + 1) +
+					" from " + config.launch.mainClass, e);
 			} catch (InvocationTargetException e) {
 				throw new RuntimeException(e.getTargetException());
 			}
 		}
+	}
+
+	private List<URL> resolveJars(ConfigFile config, ParsedArguments argsParsed) {
+		List<ResolvableJar> configuredJars = config.getConfiguredJars();
+		List<ResolvableJar> downloadRequiredJars = new ArrayList<>();
+		// TODO: remove
+		BlockingQueue<URL> loadUrlstemp = new LinkedBlockingQueue<>();
+		List<URL> loadUrls = new ArrayList<>();
+
+		// Resolve all the JARs locally
+		for (ResolvableJar jar : configuredJars) {
+			try {
+				URL resolvedUrl = jar.resolveLocal();
+				loadUrls.add(resolvedUrl);
+			} catch (FileNotFoundException e) {
+				downloadRequiredJars.add(jar);
+			}
+		}
+
+		if (!downloadRequiredJars.isEmpty()) {
+			if (config.downloadRequiredFiles) {
+				// TODO: cli progress bar, file status
+
+				DownloadWorkerManager workerManager = new DownloadWorkerManager();
+				for (ResolvableJar jar : downloadRequiredJars) {
+					workerManager.queueWorker(status -> {
+						try {
+							// TODO: get this value!! executorservice
+							loadUrlstemp.put(jar.resolveRemote(status, argsParsed));
+						} catch (Exception e) {
+							status.markFailed(e);
+							return;
+						}
+						status.markCompleted();
+					});
+				}
+
+				// haha yes very good wait loop
+//				while (!workerManager.isDone()) {
+//					try {
+//						Thread.sleep(500);
+//						System.out.println(workerManager.getWorkerProgress());
+//					} catch (InterruptedException e) {
+//						e.printStackTrace();
+//					}
+//				}
+				// TODO: check headless
+				GUIManager guiManager = new GUIManager(workerManager);
+				guiManager.run();
+
+				// TODO: cleanup
+				for (Exception ex : workerManager.getExceptions()) {
+					throw new RuntimeException(ex);
+				}
+			} else {
+				LOGGER.warn("downloadRequiredFiles is disabled, skipping downloading of JARs!");
+			}
+		}
+
+		// TODO: remove
+		while (!loadUrlstemp.isEmpty()) {
+			loadUrls.add(loadUrlstemp.remove());
+		}
+
+		return loadUrls;
 	}
 
 	@SuppressWarnings("rawtypes")

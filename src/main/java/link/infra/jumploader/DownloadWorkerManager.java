@@ -83,9 +83,12 @@ public class DownloadWorkerManager {
 				ts.markFailed(new InterruptedException());
 			}
 		});
+		// TODO: oh no, we're actually hiding all the failures here
+		// TODO: move failures to an executionservice return value?
 		threadMap.clear();
 	}
 
+	// TODO: work this out for tasks that haven't started yet!!!!
 	public float getWorkerProgress() {
 		int sumExpected = 0;
 		int sumDownloaded = 0;
