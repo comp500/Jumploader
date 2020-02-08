@@ -17,13 +17,9 @@
   "license": "MIT",
   "icon": "assets/jumploader/icon-128.png",
 
-  "environment": "client",
+  "environment": "*",
 
   "depends": {
     "fabricloader": ">=0.7.2"
-  },
-  
-  "custom": {
-    "modmenu:clientsideOnly": true
   }
 }
