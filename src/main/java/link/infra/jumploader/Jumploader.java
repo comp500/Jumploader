@@ -12,6 +12,7 @@ import link.infra.jumploader.resources.ParsedArguments;
 import link.infra.jumploader.resources.ResolvableJar;
 import link.infra.jumploader.specialcases.ArgumentsModifier;
 import link.infra.jumploader.specialcases.ClassBlacklist;
+import link.infra.jumploader.specialcases.JarResourcePriorityModifier;
 import link.infra.jumploader.specialcases.ReflectionHack;
 import link.infra.jumploader.ui.GUIManager;
 import org.apache.logging.log4j.LogManager;
@@ -19,19 +20,13 @@ import org.apache.logging.log4j.Logger;
 
 import javax.annotation.Nonnull;
 import java.awt.*;
-import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.lang.reflect.Field;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
-import java.net.URI;
-import java.net.URISyntaxException;
 import java.net.URL;
 import java.net.URLClassLoader;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.util.List;
 import java.util.*;
 import java.util.stream.Collectors;
@@ -42,67 +37,40 @@ public class Jumploader implements ITransformationService {
 
 	private final Logger LOGGER = LogManager.getLogger();
 
-	private static class IgnoreForgeClassLoader extends URLClassLoader {
-		private final Logger LOGGER = LogManager.getLogger();
+	private static class JumploaderClassLoader extends URLClassLoader {
 		private final List<ClassBlacklist> blacklists;
+		private final List<JarResourcePriorityModifier> priorityModifiers;
 
-		public IgnoreForgeClassLoader(URL[] urls, List<ClassBlacklist> blacklists) {
+		public JumploaderClassLoader(URL[] urls, List<ClassBlacklist> blacklists, List<JarResourcePriorityModifier> priorityModifiers) {
 			super(urls);
 			this.blacklists = blacklists;
-		}
-
-		private static Path jarFileFromUrl(URL jarUrl) throws URISyntaxException {
-			String path = jarUrl.getFile();
-			// Get the path to the jar from the jar path
-			path = path.split("!")[0];
-			return Paths.get(new URI(path));
+			this.priorityModifiers = priorityModifiers;
 		}
 
 		@Override
 		public Enumeration<URL> getResources(String name) throws IOException {
-			ArrayList<URL> resList = Collections.list(super.getResources(name));
-			// TODO: refactor this functionality into a specialcase
-			if (name.contains("net/minecraft/client/main/Main") || name.contains("net/minecraft/server/MinecraftServer")) {
-				LOGGER.debug("Found " + resList.size() + " Main classes, attempting to prioritize Jumploaded Vanilla JAR");
-
-				// If this is the main class, reverse the order (so the child JARs are used first) and replace the system property
-				Collections.reverse(resList);
-
-				// Find the Forge JAR (this should be second in the list) and replace it with the Vanilla JAR (first in the list)
-				try {
-					if (resList.size() >= 2) {
-						String[] classPath = System.getProperty("java.class.path").split(File.pathSeparator);
-						Path origFile = jarFileFromUrl(resList.get(1));
-						for (int i = 0; i < classPath.length; i++) {
-							if (Files.isSameFile(Paths.get(classPath[i]), origFile)) {
-								classPath[i] = jarFileFromUrl(resList.get(0)).toString();
-								LOGGER.debug("Replacing " + origFile.toString() + " with " + classPath[i] + " in java.class.path property");
-							}
-						}
-						System.setProperty("java.class.path", String.join(File.pathSeparator, classPath));
-					}
-				} catch (URISyntaxException e) {
-					LOGGER.error("Failed to replace java.class.path", e);
-				}
-
-				if (resList.size() > 2) {
-					LOGGER.error("Found multiple Main classes, this is likely to be a problem. Have you used multiple Minecraft JARs?");
+			for (JarResourcePriorityModifier modifier : priorityModifiers) {
+				if (modifier.shouldApplyClass(name)) {
+					ArrayList<URL> resList = Collections.list(super.getResources(name));
+					modifier.apply(resList);
+					return Collections.enumeration(resList);
 				}
 			}
-			return Collections.enumeration(resList);
+			return super.getResources(name);
 		}
 
 		@Override
 		public URL getResource(String name) {
-			if (name.contains("net/minecraft/client/main/Main") || name.contains("net/minecraft/server/MinecraftServer")) {
-				try {
-					return getResources(name).nextElement();
-				} catch (IOException | NoSuchElementException e) {
-					return null;
+			for (JarResourcePriorityModifier modifier : priorityModifiers) {
+				if (modifier.shouldApplyClass(name)) {
+					try {
+						return getResources(name).nextElement();
+					} catch (IOException | NoSuchElementException e) {
+						return null;
+					}
 				}
-			} else {
-				return super.getResource(name);
 			}
+			return super.getResource(name);
 		}
 
 		@Override
@@ -190,9 +158,10 @@ public class Jumploader implements ITransformationService {
 		List<URL> loadUrls = resolveJars(config, argsParsed);
 
 		List<ClassBlacklist> appliedBlacklists = ClassBlacklist.BLACKLISTS.stream().filter(bl -> bl.shouldApply(loadUrls, config.launch.mainClass, argsParsed)).collect(Collectors.toList());
+		List<JarResourcePriorityModifier> priorityModifiers = JarResourcePriorityModifier.MODIFIERS.stream().filter(bl -> bl.shouldApply(loadUrls, config.launch.mainClass, argsParsed)).collect(Collectors.toList());
 
 		// Create the classloader with the found JARs
-		URLClassLoader newLoader = new IgnoreForgeClassLoader(loadUrls.toArray(new URL[0]), appliedBlacklists);
+		URLClassLoader newLoader = new JumploaderClassLoader(loadUrls.toArray(new URL[0]), appliedBlacklists, priorityModifiers);
 		Thread.currentThread().setContextClassLoader(newLoader);
 
 		// Apply the argument modifiers
@@ -319,7 +288,7 @@ public class Jumploader implements ITransformationService {
 						}
 					}
 				} else {
-					GUIManager guiManager = new GUIManager(workerManager);
+					GUIManager guiManager = new GUIManager(workerManager, argsParsed);
 					guiManager.init();
 
 					boolean closeTriggered = false;

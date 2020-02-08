@@ -2,6 +2,7 @@ package link.infra.jumploader.ui;
 
 
 import link.infra.jumploader.DownloadWorkerManager;
+import link.infra.jumploader.resources.ParsedArguments;
 
 import java.util.Arrays;
 
@@ -12,13 +13,13 @@ import java.util.Arrays;
 public class GUIManager {
 	private final Window window;
 
-	public GUIManager(DownloadWorkerManager<?> downloadWorkerManager) {
+	public GUIManager(DownloadWorkerManager<?> downloadWorkerManager, ParsedArguments args) {
 		window = new Window(new AdaptiveWidthContainer(
 			new DirectionLayout(Direction.VERTICAL).addChildren(
 				new Image("assets/jumploader/splashlogo.png"),
 				new AdaptiveWidthContainer(new ProgressBar(downloadWorkerManager::getWorkerProgress), 0.5f, 1500f)
 			)
-		));
+		), args.windowWidth, args.windowHeight);
 		window.setIcons(Arrays.asList(
 			"assets/jumploader/icon-16.png",
 			"assets/jumploader/icon-32.png",

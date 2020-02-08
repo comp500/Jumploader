@@ -1,6 +1,7 @@
 package link.infra.jumploader.specialcases;
 
 import link.infra.jumploader.resources.ParsedArguments;
+import link.infra.jumploader.util.RegexUtil;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 

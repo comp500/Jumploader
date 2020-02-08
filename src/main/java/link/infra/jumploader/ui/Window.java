@@ -24,7 +24,7 @@ public class Window implements Component {
 	private final long windowPtr;
 	private boolean shouldClose;
 
-	public Window(Component rootComponent) {
+	public Window(Component rootComponent, int winWidth, int winHeight) {
 		this.rootComponent = rootComponent;
 
 		// Initialise GLFW
@@ -38,9 +38,8 @@ public class Window implements Component {
 		GLFW.glfwWindowHint(GLFW.GLFW_VISIBLE, GLFW.GLFW_FALSE);
 		GLFW.glfwWindowHint(GLFW.GLFW_RESIZABLE, GLFW.GLFW_TRUE);
 
-		// TODO: use params?
 		// Create the window
-		windowPtr = GLFW.glfwCreateWindow(854, 480, "Jumploader", MemoryUtil.NULL, MemoryUtil.NULL);
+		windowPtr = GLFW.glfwCreateWindow(winWidth, winHeight, "Jumploader", MemoryUtil.NULL, MemoryUtil.NULL);
 		if (windowPtr == MemoryUtil.NULL) {
 			throw new RuntimeException("Failed to create a window for Jumploader status");
 		}
