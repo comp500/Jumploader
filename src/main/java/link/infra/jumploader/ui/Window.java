@@ -1,15 +1,17 @@
 package link.infra.jumploader.ui;
 
-import org.lwjgl.glfw.Callbacks;
-import org.lwjgl.glfw.GLFW;
-import org.lwjgl.glfw.GLFWErrorCallback;
-import org.lwjgl.glfw.GLFWVidMode;
+import org.lwjgl.glfw.*;
 import org.lwjgl.opengl.GL;
 import org.lwjgl.opengl.GL11;
+import org.lwjgl.stb.STBImage;
 import org.lwjgl.system.MemoryStack;
 import org.lwjgl.system.MemoryUtil;
 
+import java.io.IOException;
+import java.nio.ByteBuffer;
 import java.nio.IntBuffer;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Objects;
 
 /**
@@ -153,6 +155,44 @@ public class Window implements Component {
 	@Override
 	public float getCurrentHeight() {
 		return rootComponent.getCurrentHeight();
+	}
+
+	public void setIcons(List<String> iconPaths) {
+		List<ByteBuffer> buffersToFree = new ArrayList<>(iconPaths.size());
+
+		GLFWImage.Buffer buffer = GLFWImage.create(iconPaths.size());
+		int i = 0;
+		try (MemoryStack stack = MemoryStack.stackPush()) {
+			IntBuffer w = stack.mallocInt(1);
+			IntBuffer h = stack.mallocInt(1);
+			IntBuffer comp = stack.mallocInt(1);
+
+			for (String imagePath : iconPaths) {
+				ByteBuffer imageCompressedData;
+				try {
+					imageCompressedData = ResourceLoader.loadResource(imagePath);
+				} catch (IOException e) {
+					throw new RuntimeException("Failed to load image", e);
+				}
+
+				ByteBuffer imageData = STBImage.stbi_load_from_memory(imageCompressedData, w, h, comp, 4);
+				MemoryUtil.memFree(imageCompressedData);
+				if (imageData == null) {
+					throw new RuntimeException("Failed to load image: " + STBImage.stbi_failure_reason());
+				}
+				buffer.position(i).width(w.get(0)).height(h.get(0)).pixels(imageData);
+				i++;
+
+				buffersToFree.add(imageData);
+			}
+		}
+		buffer.position(0);
+		GLFW.glfwSetWindowIcon(windowPtr, buffer);
+		buffer.free();
+
+		for (ByteBuffer buf : buffersToFree) {
+			STBImage.stbi_image_free(buf);
+		}
 	}
 
 }

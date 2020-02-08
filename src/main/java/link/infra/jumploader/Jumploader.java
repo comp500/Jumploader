@@ -286,6 +286,8 @@ public class Jumploader implements ITransformationService {
 				GUIManager guiManager = new GUIManager(workerManager);
 				guiManager.run();
 
+				workerManager.shutdown();
+
 				// TODO: cleanup
 				for (Exception ex : workerManager.getExceptions()) {
 					throw new RuntimeException(ex);

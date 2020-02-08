@@ -40,7 +40,7 @@ public class MinecraftJar extends ResolvableJar {
 
 	@Override
 	public URL resolveRemote(DownloadWorkerManager.TaskStatus status, ParsedArguments args) throws Exception {
-		// TODO: ensure special exception is handled correctly
+		// TODO: better UI for invalid token?
 		if (downloadType.contains("client")) {
 			MinecraftDownloadApi.validate(args.accessToken);
 		}
@@ -50,6 +50,7 @@ public class MinecraftJar extends ResolvableJar {
 		try {
 			downloadFile(status, details.url, gameJarPath, SHA1HashingInputStream.transformer(details.sha1));
 		} catch (SHA1HashingInputStream.InvalidHashException e) {
+			// TODO: better UI for this?
 			LOGGER.error("Minecraft JAR hash mismatch for " + details.url);
 			LOGGER.error("Expected: " + details.sha1);
 			LOGGER.error("Found:    " + e.hashFound);
