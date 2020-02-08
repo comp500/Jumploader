@@ -1,5 +1,5 @@
 # Jumploader
-Jumploader is a mod that allows you to use Fabric mods in Twitch modpacks, by loading Fabric as if it were a Forge mod. It works on both the client and server, however it's only necessary on the server if you want to launch the game using tools that only support Forge. Jumploader is fully configurable to download any Minecraft version and mod loader, but by default it will download the Fabric loader and library versions corresponding to your current version of the game. It only loads if your game was launched from Forge/ModLauncher, so it won't do anything if your Minecraft launcher already supports Fabric.
+Jumploader is a mod that allows the use of Fabric mods in Twitch modpacks, by loading Fabric as if it were a Forge mod. It works on both the client and server, however it's only necessary on the server if you want to launch the game using tools that only support Forge. Jumploader is fully configurable to download any Minecraft version and mod loader, but by default it will download the Fabric loader and library versions corresponding to your current version of the game. It only loads if your game was launched from Forge/ModLauncher, so it won't do anything if your Minecraft launcher already supports Fabric.
 
 ## What it does
 - Loads Fabric (or a different configured mod loader) instead of Forge, from a Forge installation.

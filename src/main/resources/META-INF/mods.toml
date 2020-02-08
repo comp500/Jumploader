@@ -27,7 +27,7 @@ displayName="Jumploader" #mandatory
 authors="comp500" #optional
 # The description text for the mod (multi line!) (#mandatory)
 description='''
-Allows you to use Fabric mods in Twitch modpacks, by loading Fabric as if it were a Forge mod.
+Allows the use of Fabric mods in Twitch modpacks, by loading Fabric as if it were a Forge mod.
 '''
 # A dependency - use the . to indicate dependency for a specific modid. Dependencies are optional.
 #[[dependencies.jumploader]] #optional
