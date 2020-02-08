@@ -178,6 +178,8 @@ public class Jumploader implements ITransformationService {
 			}
 		}
 
+		int preLaunchRunningThreads = Thread.currentThread().getThreadGroup().activeCount();
+
 		LOGGER.info("Jumping to new loader, main class: " + config.launch.mainClass);
 		// Attempt to launch mainClass with the classloader
 		Class<?> mainClass;
@@ -212,7 +214,7 @@ public class Jumploader implements ITransformationService {
 		}
 
 		// Attempt to determine if returning from invoke() was intentional
-		if (Thread.currentThread().getThreadGroup().activeCount() <= 2) {
+		if (Thread.currentThread().getThreadGroup().activeCount() - preLaunchRunningThreads <= 0) {
 			LOGGER.warn("Minecraft shouldn't return from invoke() without spawning threads, loading is likely to have failed!");
 		} else {
 			LOGGER.info("Game returned from invoke(), attempting to stop ModLauncher init");
@@ -267,7 +269,13 @@ public class Jumploader implements ITransformationService {
 					workerManager.queueWorker(status -> jar.resolveRemote(status, argsParsed));
 				}
 
-				if (GraphicsEnvironment.isHeadless() || argsParsed.nogui) {
+				boolean lwjglAvailable = false;
+				try {
+					Class.forName("org.lwjgl.system.MemoryStack");
+					lwjglAvailable = true;
+				} catch (ClassNotFoundException ignored) {}
+
+				if (!lwjglAvailable || GraphicsEnvironment.isHeadless() || argsParsed.nogui) {
 					while (!workerManager.isDone()) {
 						LOGGER.info("Progress: " + (workerManager.getWorkerProgress() * 100) + "%");
 						URL resolvedURL;

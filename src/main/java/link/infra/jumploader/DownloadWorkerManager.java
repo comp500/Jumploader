@@ -138,6 +138,7 @@ public class DownloadWorkerManager<T> {
 	public void shutdown() throws InterruptedException {
 		threadPool.shutdown();
 		threadPool.awaitTermination(10, TimeUnit.SECONDS);
+		threadPool.shutdownNow();
 	}
 
 	public float getWorkerProgress() {
