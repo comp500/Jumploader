@@ -59,4 +59,9 @@ public class MinecraftJar extends ResolvableJar {
 		}
 		return pathToURL(gameJarPath);
 	}
+
+	@Override
+	public String toHumanString() {
+		return "Minecraft " + downloadType + " " + gameVersion;
+	}
 }

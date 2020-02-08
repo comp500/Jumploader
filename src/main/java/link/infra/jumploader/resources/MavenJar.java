@@ -40,4 +40,9 @@ public class MavenJar extends ResolvableJar {
 		downloadFile(status, downloadUrl, jarPath, is -> is);
 		return pathToURL(jarPath);
 	}
+
+	@Override
+	public String toHumanString() {
+		return "Maven library (" + repoUrl + ") " + mavenPath;
+	}
 }

@@ -116,4 +116,6 @@ public abstract class ResolvableJar {
 
 	public abstract URL resolveLocal() throws FileNotFoundException;
 	public abstract URL resolveRemote(DownloadWorkerManager.TaskStatus status, ParsedArguments args) throws Exception;
+
+	public abstract String toHumanString();
 }

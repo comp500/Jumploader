@@ -10,17 +10,13 @@ import java.util.Arrays;
  * writing it, and it works.
  */
 public class GUIManager {
-	private boolean shouldClose = false;
-	private final DownloadWorkerManager downloadWorkerManager;
 	private final Window window;
 
-	public GUIManager(DownloadWorkerManager downloadWorkerManager) {
-		this.downloadWorkerManager = downloadWorkerManager;
-
+	public GUIManager(DownloadWorkerManager<?> downloadWorkerManager) {
 		window = new Window(new AdaptiveWidthContainer(
 			new DirectionLayout(Direction.VERTICAL).addChildren(
 				new Image("assets/jumploader/splashlogo.png"),
-				new AdaptiveWidthContainer(new ProgressBar(this::getProgress), 0.5f, 1500f)
+				new AdaptiveWidthContainer(new ProgressBar(downloadWorkerManager::getWorkerProgress), 0.5f, 1500f)
 			)
 		));
 		window.setIcons(Arrays.asList(
@@ -31,19 +27,20 @@ public class GUIManager {
 		));
 	}
 
-	public void run() {
+	public void init() {
 		window.init();
-		while (!window.shouldClose() && !shouldClose) {
-			window.render();
-		}
-		window.free();
 	}
 
-	private float getProgress() {
-		if (downloadWorkerManager.isDone()) {
-			shouldClose = true;
-		}
-		return downloadWorkerManager.getWorkerProgress();
+	public boolean wasCloseTriggered() {
+		return window.shouldClose();
+	}
+
+	public void render() {
+		window.render();
+	}
+
+	public void cleanup() {
+		window.free();
 	}
 
 }

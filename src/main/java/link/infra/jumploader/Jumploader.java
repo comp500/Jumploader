@@ -17,6 +17,7 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
 import javax.annotation.Nonnull;
+import java.awt.*;
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.IOException;
@@ -30,9 +31,8 @@ import java.net.URLClassLoader;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.List;
 import java.util.*;
-import java.util.concurrent.BlockingQueue;
-import java.util.concurrent.LinkedBlockingQueue;
 import java.util.stream.Collectors;
 
 public class Jumploader implements ITransformationService {
@@ -187,10 +187,6 @@ public class Jumploader implements ITransformationService {
 
 		List<URL> loadUrls = resolveJars(config, argsParsed);
 
-		for (URL jarUrl : loadUrls) {
-			LOGGER.info("Found JAR: " + jarUrl);
-		}
-
 		List<ClassBlacklist> appliedBlacklists = ClassBlacklist.BLACKLISTS.stream().filter(bl -> bl.shouldApply(loadUrls, config.launch.mainClass)).collect(Collectors.toList());
 
 		// Create the classloader with the found JARs
@@ -241,8 +237,6 @@ public class Jumploader implements ITransformationService {
 	private List<URL> resolveJars(ConfigFile config, ParsedArguments argsParsed) {
 		List<ResolvableJar> configuredJars = config.getConfiguredJars();
 		List<ResolvableJar> downloadRequiredJars = new ArrayList<>();
-		// TODO: remove
-		BlockingQueue<URL> loadUrlstemp = new LinkedBlockingQueue<>();
 		List<URL> loadUrls = new ArrayList<>();
 
 		// Resolve all the JARs locally
@@ -250,6 +244,7 @@ public class Jumploader implements ITransformationService {
 			try {
 				URL resolvedUrl = jar.resolveLocal();
 				loadUrls.add(resolvedUrl);
+				LOGGER.info("Found JAR: " + resolvedUrl);
 			} catch (FileNotFoundException e) {
 				downloadRequiredJars.add(jar);
 			}
@@ -257,49 +252,76 @@ public class Jumploader implements ITransformationService {
 
 		if (!downloadRequiredJars.isEmpty()) {
 			if (config.downloadRequiredFiles) {
-				// TODO: cli progress bar, file status
-
-				DownloadWorkerManager workerManager = new DownloadWorkerManager();
+				DownloadWorkerManager<URL> workerManager = new DownloadWorkerManager<>();
 				for (ResolvableJar jar : downloadRequiredJars) {
-					workerManager.queueWorker(status -> {
-						try {
-							// TODO: get this value!! executorservice
-							loadUrlstemp.put(jar.resolveRemote(status, argsParsed));
-						} catch (Exception e) {
-							status.markFailed(e);
-							return;
-						}
-						status.markCompleted();
-					});
+					LOGGER.info("Queueing download: " + jar.toHumanString());
+					workerManager.queueWorker(status -> jar.resolveRemote(status, argsParsed));
 				}
 
-				// haha yes very good wait loop
-//				while (!workerManager.isDone()) {
-//					try {
-//						Thread.sleep(500);
-//						System.out.println(workerManager.getWorkerProgress());
-//					} catch (InterruptedException e) {
-//						e.printStackTrace();
-//					}
-//				}
-				// TODO: check headless
-				GUIManager guiManager = new GUIManager(workerManager);
-				guiManager.run();
+				if (GraphicsEnvironment.isHeadless()) {
+					while (!workerManager.isDone()) {
+						LOGGER.info("Progress: " + (workerManager.getWorkerProgress() * 100) + "%");
+						URL resolvedURL;
+						try {
+							resolvedURL = workerManager.pollResult(500);
+						} catch (Exception e) {
+							// TODO: implement a better way of showing download exceptions?
+							try {
+								workerManager.shutdown();
+							} catch (InterruptedException ex) {
+								throw new RuntimeException(ex);
+							}
+							throw new RuntimeException(e);
+						}
+						if (resolvedURL != null) {
+							LOGGER.info("Downloaded successfully: " + resolvedURL);
+							loadUrls.add(resolvedURL);
+						}
+					}
+				} else {
+					GUIManager guiManager = new GUIManager(workerManager);
+					guiManager.init();
 
-				workerManager.shutdown();
+					boolean closeTriggered = false;
+					while (!workerManager.isDone()) {
+						if (guiManager.wasCloseTriggered()) {
+							LOGGER.warn("Download window closed! Shutting down...");
+							try {
+								workerManager.shutdown();
+							} catch (InterruptedException e) {
+								throw new RuntimeException(e);
+							}
+							closeTriggered = true;
+							break;
+						}
+						guiManager.render();
+						URL resolvedURL;
+						try {
+							resolvedURL = workerManager.pollResult();
+						} catch (Exception e) {
+							// TODO: implement a better way of showing download exceptions?
+							try {
+								workerManager.shutdown();
+							} catch (InterruptedException ex) {
+								throw new RuntimeException(ex);
+							}
+							guiManager.cleanup();
+							throw new RuntimeException(e);
+						}
+						if (resolvedURL != null) {
+							LOGGER.info("Downloaded successfully: " + resolvedURL);
+							loadUrls.add(resolvedURL);
+						}
+					}
 
-				// TODO: cleanup
-				for (Exception ex : workerManager.getExceptions()) {
-					throw new RuntimeException(ex);
+					guiManager.cleanup();
+					if (closeTriggered) {
+						System.exit(1);
+					}
 				}
 			} else {
 				LOGGER.warn("downloadRequiredFiles is disabled, skipping downloading of JARs!");
 			}
-		}
-
-		// TODO: remove
-		while (!loadUrlstemp.isEmpty()) {
-			loadUrls.add(loadUrlstemp.remove());
 		}
 
 		return loadUrls;

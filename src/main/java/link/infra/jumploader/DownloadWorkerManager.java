@@ -1,22 +1,31 @@
 package link.infra.jumploader;
 
-import java.util.HashMap;
+import java.util.ArrayList;
 import java.util.List;
-import java.util.Objects;
-import java.util.stream.Collectors;
+import java.util.concurrent.*;
+import java.util.concurrent.atomic.AtomicInteger;
 
-public class DownloadWorkerManager {
-	private final HashMap<Thread, TaskStatus> threadMap = new HashMap<>();
+public class DownloadWorkerManager<T> {
+	private ExecutorService threadPool = Executors.newFixedThreadPool(5);
+	private ExecutorCompletionService<TaskResult> completionService = new ExecutorCompletionService<>(threadPool);
+
+	private int queuedTasks = 0;
+	private final List<TaskStatus> statusValues = new ArrayList<>();
+	private final AtomicInteger completedTasks = new AtomicInteger();
+
+	/**
+	 * A DownloadWorker downloads one file, reporting its progress to the TaskStatus given
+	 */
+	public interface DownloadWorker<T> {
+		T start(TaskStatus status) throws Exception;
+	}
 
 	public static class TaskStatus {
 		private int downloaded = 0;
 		private int expectedLength = -1;
 		private boolean done = false;
-		private Exception failureException = null;
 
 		private TaskStatus() {}
-
-		private static class UnknownFailureReasonException extends Exception {}
 
 		public synchronized void setDownloaded(int downloaded) {
 			this.downloaded = downloaded;
@@ -26,20 +35,11 @@ public class DownloadWorkerManager {
 			this.expectedLength = expectedLength;
 		}
 
-		public synchronized void markCompleted() {
+		private synchronized void markCompleted() {
 			done = true;
 		}
 
-		public synchronized void markFailed(Exception failureException) {
-			done = true;
-			if (failureException == null) {
-				this.failureException = new UnknownFailureReasonException();
-			} else {
-				this.failureException = failureException;
-			}
-		}
-
-		public synchronized int getDownloaded() {
+		private synchronized int getDownloaded() {
 			if (done) {
 				if (downloaded != expectedLength && expectedLength != -1) {
 					return expectedLength;
@@ -48,7 +48,7 @@ public class DownloadWorkerManager {
 			return downloaded;
 		}
 
-		public synchronized int getExpectedLength() {
+		private synchronized int getExpectedLength() {
 			if (done) {
 				if (downloaded != expectedLength) {
 					return downloaded;
@@ -60,59 +60,106 @@ public class DownloadWorkerManager {
 			return expectedLength;
 		}
 
-		public synchronized Exception getFailureException() {
-			return failureException;
-		}
-
-		public synchronized boolean isIncomplete() {
-			return !done;
+		public synchronized boolean isComplete() {
+			return done;
 		}
 	}
 
-	public void queueWorker(DownloadWorker worker) {
+	private class TaskResult {
+		private final Exception failure;
+		private final T result;
+
+		private TaskResult(T result) {
+			this.result = result;
+			this.failure = null;
+		}
+
+		private TaskResult(Exception failure) {
+			this.result = null;
+			this.failure = failure;
+		}
+
+		public Exception getFailure() {
+			return failure;
+		}
+
+		public T getResult() {
+			return result;
+		}
+	}
+
+	/**
+	 * Queues a new worker. Must not be called at the same time as isDone or getWorkerProgress
+	 */
+	public void queueWorker(DownloadWorker<T> worker) {
 		TaskStatus status = new TaskStatus();
-		Thread workerThread = new Thread(() -> worker.start(status));
-		threadMap.put(workerThread, status);
-		workerThread.start();
-	}
-
-	public void shutdown() {
-		threadMap.forEach((t, ts) -> {
-			t.interrupt();
-			if (ts.getFailureException() == null && ts.isIncomplete()) {
-				ts.markFailed(new InterruptedException());
+		completionService.submit(() -> {
+			try {
+				T result = worker.start(status);
+				status.markCompleted();
+				return new TaskResult(result);
+			} catch (Exception e) {
+				status.markCompleted();
+				return new TaskResult(e);
 			}
-		});
-		// TODO: oh no, we're actually hiding all the failures here
-		// TODO: move failures to an executionservice return value?
-		threadMap.clear();
+ 		});
+		statusValues.add(status);
+		queuedTasks++;
 	}
 
-	// TODO: work this out for tasks that haven't started yet!!!!
+	public T pollResult() throws Exception {
+		Future<TaskResult> fRes = completionService.poll();
+		if (fRes == null) {
+			return null;
+		}
+		TaskResult res = fRes.get();
+		completedTasks.incrementAndGet();
+
+		if (res.getFailure() != null) {
+			throw res.getFailure();
+		}
+		return res.getResult();
+	}
+
+	public T pollResult(long millisecondsToWait) throws Exception {
+		Future<TaskResult> fRes = completionService.poll(millisecondsToWait, TimeUnit.MILLISECONDS);
+		if (fRes == null) {
+			return null;
+		}
+		TaskResult res = fRes.get();
+		completedTasks.incrementAndGet();
+
+		if (res.getFailure() != null) {
+			throw res.getFailure();
+		}
+		return res.getResult();
+	}
+
+	public void shutdown() throws InterruptedException {
+		threadPool.shutdown();
+		threadPool.awaitTermination(10, TimeUnit.SECONDS);
+	}
+
 	public float getWorkerProgress() {
-		int sumExpected = 0;
-		int sumDownloaded = 0;
-		for (TaskStatus status : threadMap.values()) {
+		float completedCount = 0;
+		float sumExpected = 0;
+		float sumDownloaded = 0;
+		for (TaskStatus status : statusValues) {
+			if (status.isComplete()) {
+				completedCount++;
+				continue;
+			}
 			sumDownloaded += status.getDownloaded();
 			sumExpected += status.getExpectedLength();
 		}
 		if (sumExpected == 0) {
-			return 0f;
+			return completedCount / queuedTasks;
 		}
-		return (float)sumDownloaded / (float)sumExpected;
+		return (completedCount + (sumDownloaded / sumExpected)) / queuedTasks;
 	}
 
+	@SuppressWarnings("BooleanMethodIsAlwaysInverted")
 	public boolean isDone() {
-		for (TaskStatus status : threadMap.values()) {
-			if (status.isIncomplete()) {
-				return false;
-			}
-		}
-		return true;
+		return statusValues.size() == completedTasks.get();
 	}
-
-	public List<Exception> getExceptions() {
-		return threadMap.values().stream().map(TaskStatus::getFailureException).filter(Objects::nonNull).collect(Collectors.toList());
-	}
-
 }
