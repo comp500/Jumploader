@@ -20,9 +20,18 @@ public class FabricAutoconfHandler implements AutoconfHandler {
 
 	private static final String FABRIC_MAVEN = "https://maven.fabricmc.net/";
 
+	private static boolean shouldUpdate(ConfigFile configFile, ParsedArguments args, EnvironmentDiscoverer env) {
+		if (configFile.autoconfig.forceUpdate || configFile.jars == null) {
+			return true;
+		}
+		return !AutoconfHandler.doesConfigContainGame(args.mcVersion, args.inferredSide, configFile);
+	}
+
 	@Override
 	public void updateConfig(ConfigFile configFile, ParsedArguments args, EnvironmentDiscoverer env) {
-		if (configFile.autoconfig.forceUpdate || configFile.jars == null || !AutoconfHandler.doesConfigContainGameVersion(args.mcVersion, configFile)) {
+		if (shouldUpdate(configFile, args, env)) {
+			// Default to the inferred side
+			String side = configFile.autoconfig.side != null ? configFile.autoconfig.side : args.inferredSide;
 			try {
 				URL loaderJsonUrl = new URI("https", "meta.fabricmc.net", "/v2/versions/loader/" + args.mcVersion, null).toURL();
 				JsonArray manifestData = RequestJson.getJson(loaderJsonUrl).getAsJsonArray();
@@ -33,7 +42,7 @@ public class FabricAutoconfHandler implements AutoconfHandler {
 				configFile.resetConfiguredJars();
 				JsonObject latestLoaderData = manifestData.get(0).getAsJsonObject();
 
-				configFile.jars.minecraft.add(new MinecraftJar(env.jarStorage, args.mcVersion, configFile.autoconfig.side));
+				configFile.jars.minecraft.add(new MinecraftJar(env.jarStorage, args.mcVersion, side));
 
 				String loaderMaven = latestLoaderData.getAsJsonObject("loader").get("maven").getAsString();
 				configFile.jars.maven.add(new MavenJar(env.jarStorage, loaderMaven, FABRIC_MAVEN));
@@ -43,7 +52,7 @@ public class FabricAutoconfHandler implements AutoconfHandler {
 				JsonObject launcherMeta = latestLoaderData.getAsJsonObject("launcherMeta");
 
 				JsonObject mainClass = launcherMeta.getAsJsonObject("mainClass");
-				configFile.launch.mainClass = mainClass.get(configFile.autoconfig.side).getAsString();
+				configFile.launch.mainClass = mainClass.get(side).getAsString();
 
 				JsonObject libraries = launcherMeta.getAsJsonObject("libraries");
 				for (JsonElement library : libraries.getAsJsonArray("common")) {
@@ -54,7 +63,7 @@ public class FabricAutoconfHandler implements AutoconfHandler {
 						libraryObj.get("url").getAsString()
 					));
 				}
-				for (JsonElement library : libraries.getAsJsonArray(configFile.autoconfig.side)) {
+				for (JsonElement library : libraries.getAsJsonArray(side)) {
 					JsonObject libraryObj = library.getAsJsonObject();
 					configFile.jars.maven.add(new MavenJar(
 						env.jarStorage,

@@ -10,6 +10,7 @@ import link.infra.jumploader.meta.AutoconfHandler;
 import link.infra.jumploader.resources.EnvironmentDiscoverer;
 import link.infra.jumploader.resources.ParsedArguments;
 import link.infra.jumploader.resources.ResolvableJar;
+import link.infra.jumploader.specialcases.ArgumentsModifier;
 import link.infra.jumploader.specialcases.ClassBlacklist;
 import link.infra.jumploader.specialcases.ReflectionHack;
 import link.infra.jumploader.ui.GUIManager;
@@ -143,22 +144,23 @@ public class Jumploader implements ITransformationService {
 		LOGGER.info("Jumploader " + VERSION + " initialising, discovering environment...");
 
 		// Get the game arguments
-		String[] gameArgs;
+		ParsedArguments argsParsedTemp;
 		// Very bad reflection, don't try this at home!!
 		try {
 			ArgumentHandler handler = reflectField(Launcher.INSTANCE, "argumentHandler");
-			gameArgs = reflectField(handler, "args");
+			String[] gameArgs = reflectField(handler, "args");
 			if (gameArgs == null) {
 				LOGGER.warn("Game arguments are null, have they been parsed yet?");
 				gameArgs = new String[0];
 			}
+			argsParsedTemp = new ParsedArguments(gameArgs);
 		} catch (NoSuchFieldException | IllegalAccessException | ClassCastException e) {
-			gameArgs = new String[0];
+			argsParsedTemp = new ParsedArguments(new String[0]);
 			LOGGER.warn("Failed to retrieve game arguments, has modlauncher changed?", e);
 		}
+		ParsedArguments argsParsed = argsParsedTemp;
 
-		// Parse the arguments, detect the environment
-		ParsedArguments argsParsed = new ParsedArguments(gameArgs);
+		// Detect the environment
 		EnvironmentDiscoverer environmentDiscoverer = new EnvironmentDiscoverer(argsParsed);
 		LOGGER.info("Detected environment " + environmentDiscoverer.jarStorage.getClass().getCanonicalName() + " [Minecraft version " + argsParsed.mcVersion + "]");
 
@@ -187,15 +189,22 @@ public class Jumploader implements ITransformationService {
 
 		List<URL> loadUrls = resolveJars(config, argsParsed);
 
-		List<ClassBlacklist> appliedBlacklists = ClassBlacklist.BLACKLISTS.stream().filter(bl -> bl.shouldApply(loadUrls, config.launch.mainClass)).collect(Collectors.toList());
+		List<ClassBlacklist> appliedBlacklists = ClassBlacklist.BLACKLISTS.stream().filter(bl -> bl.shouldApply(loadUrls, config.launch.mainClass, argsParsed)).collect(Collectors.toList());
 
 		// Create the classloader with the found JARs
 		URLClassLoader newLoader = new IgnoreForgeClassLoader(loadUrls.toArray(new URL[0]), appliedBlacklists);
 		Thread.currentThread().setContextClassLoader(newLoader);
 
+		// Apply the argument modifiers
+		for (ArgumentsModifier modifier : ArgumentsModifier.MODIFIERS) {
+			if (modifier.shouldApply(loadUrls, config.launch.mainClass, argsParsed)) {
+				modifier.apply(loadUrls, config.launch.mainClass, argsParsed);
+			}
+		}
+
 		// Apply the reflection hacks (mainly to get Java to recognize jimfs)
 		for (ReflectionHack hack : ReflectionHack.HACKS) {
-			if (hack.shouldApply(loadUrls, config.launch.mainClass)) {
+			if (hack.shouldApply(loadUrls, config.launch.mainClass, argsParsed)) {
 				hack.applyHack(newLoader);
 			}
 		}
@@ -218,7 +227,7 @@ public class Jumploader implements ITransformationService {
 		if (mainClass != null) {
 			try {
 				Method main = mainClass.getMethod("main", String[].class);
-				main.invoke(null, new Object[] {gameArgs});
+				main.invoke(null, new Object[] {argsParsed.getArgsArray()});
 			} catch (NoSuchMethodException | IllegalAccessException e) {
 				if (config.launch.mainClass.contains("Knot")) {
 					throw new RuntimeException("Failed to invoke " +
@@ -232,6 +241,37 @@ public class Jumploader implements ITransformationService {
 				throw new RuntimeException(e.getTargetException());
 			}
 		}
+
+		// Attempt to determine if returning from invoke() was intentional
+		if (Thread.currentThread().getThreadGroup().activeCount() <= 2) {
+			LOGGER.warn("Minecraft shouldn't return from invoke() without spawning threads, loading is likely to have failed!");
+		} else {
+			LOGGER.info("Game returned from invoke(), attempting to stop ModLauncher init");
+			// Kill the current thread (the Server starts it's own thread)
+			Thread.currentThread().interrupt();
+			LOGGER.info("Failed to stop, starting infinite wait to stop ModLauncher init");
+			try {
+				Object obj = new Object();
+				//noinspection SynchronizationOnLocalVariableOrMethodParameter
+				synchronized (obj) {
+					obj.wait();
+				}
+			} catch (InterruptedException ignored) {
+				// We'll be interrupted at least once thanks to interrupt(), so try again
+				try {
+					Object obj = new Object();
+					//noinspection SynchronizationOnLocalVariableOrMethodParameter
+					synchronized (obj) {
+						obj.wait();
+					}
+				} catch (InterruptedException ignored2) {
+					Thread.currentThread().interrupt();
+				}
+			}
+			LOGGER.error("Something funky is going on, ModLauncher seems to not care that I'm trying to break it!!!!!");
+			LOGGER.error("As this should never be reached normally, I'm going to System.exit(1)");
+		}
+		System.exit(1);
 	}
 
 	private List<URL> resolveJars(ConfigFile config, ParsedArguments argsParsed) {
@@ -258,7 +298,7 @@ public class Jumploader implements ITransformationService {
 					workerManager.queueWorker(status -> jar.resolveRemote(status, argsParsed));
 				}
 
-				if (GraphicsEnvironment.isHeadless()) {
+				if (GraphicsEnvironment.isHeadless() || argsParsed.nogui) {
 					while (!workerManager.isDone()) {
 						LOGGER.info("Progress: " + (workerManager.getWorkerProgress() * 100) + "%");
 						URL resolvedURL;
@@ -312,6 +352,12 @@ public class Jumploader implements ITransformationService {
 							LOGGER.info("Downloaded successfully: " + resolvedURL);
 							loadUrls.add(resolvedURL);
 						}
+					}
+
+					try {
+						workerManager.shutdown();
+					} catch (InterruptedException ex) {
+						throw new RuntimeException(ex);
 					}
 
 					guiManager.cleanup();

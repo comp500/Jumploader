@@ -1,13 +1,15 @@
 package link.infra.jumploader.resources;
 
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
+
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.Map;
+import java.util.*;
 
 public class ParsedArguments {
-	public final Map<String, String> arguments;
+	public final Map<String, String> arguments = new HashMap<>();
+	private static Logger LOGGER = LogManager.getLogger();
 
 	public final String mcVersion;
 	public final Path gameDir;
@@ -17,21 +19,37 @@ public class ParsedArguments {
 	public final int windowWidth;
 	public final int windowHeight;
 
+	public final String inferredSide;
+	public final boolean nogui;
+
 	public ParsedArguments(String[] args) {
-		Map<String, String> parsedArgs = new HashMap<>();
+		List<String> unparsedArguments = new ArrayList<>();
+		boolean noguiTemp = false;
 		for (int i = 0; i < args.length; i++) {
 			if (i < (args.length - 1) && args[i].startsWith("--")) {
-				parsedArgs.put(args[i].substring(2), args[i+1]);
+				arguments.put(args[i].substring(2), args[i + 1]);
 				i++;
+			} else if (args[i].equalsIgnoreCase("nogui")) {
+				noguiTemp = true;
+			} else {
+				unparsedArguments.add(args[i]);
 			}
 		}
-		arguments = Collections.unmodifiableMap(parsedArgs);
+		nogui = noguiTemp;
+		if (unparsedArguments.size() > 0) {
+			LOGGER.warn("Found unparsed arguments: " + Arrays.toString(unparsedArguments.toArray()));
+		}
 
 		mcVersion = get("fml.mcVersion");
 		gameDir = getPathOrDefault("gameDir", Paths.get("."));
 		accessToken = get("accessToken");
 		windowWidth = getIntOrDefault("width", 854);
 		windowHeight = getIntOrDefault("height", 480);
+		if (getOrDefault("launchTarget", "").contains("server")) {
+			inferredSide = "server";
+		} else {
+			inferredSide = "client";
+		}
 	}
 
 	public String get(String key) {
@@ -80,5 +98,17 @@ public class ParsedArguments {
 		} catch (NumberFormatException e) {
 			return def;
 		}
+	}
+
+	public String[] getArgsArray() {
+		List<String> argsList = new ArrayList<>();
+		if (nogui) {
+			argsList.add("nogui");
+		}
+		for (Map.Entry<String, String> entry : arguments.entrySet()) {
+			argsList.add("--" + entry.getKey());
+			argsList.add(entry.getValue());
+		}
+		return argsList.toArray(new String[0]);
 	}
 }

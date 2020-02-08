@@ -15,12 +15,13 @@ public interface AutoconfHandler {
 		put("fabric", new FabricAutoconfHandler());
 	}};
 
-	static boolean doesConfigContainGameVersion(String gameVersion, ConfigFile configFile) {
+	static boolean doesConfigContainGame(String gameVersion, String inferredSide, ConfigFile configFile) {
 		if (configFile.jars == null || configFile.jars.minecraft == null) {
 			return false;
 		}
 		for (MinecraftJar jar : configFile.jars.minecraft) {
-			if (jar.gameVersion.equals(gameVersion)) {
+			String sideWanted = configFile.autoconfig.side != null ? configFile.autoconfig.side : inferredSide;
+			if (jar.gameVersion.equals(gameVersion) && (jar.downloadType.equals(sideWanted) && !configFile.overrideInferredSide)) {
 				return true;
 			}
 		}

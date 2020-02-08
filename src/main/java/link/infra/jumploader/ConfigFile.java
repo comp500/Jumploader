@@ -22,16 +22,18 @@ public class ConfigFile {
 	private transient final Path destFile;
 	private transient boolean dirty = false;
 
-	// TODO: implement
+	// Download the files required to start the game. May cause problems if a download is needed!
 	public boolean downloadRequiredFiles = true;
 	// Force EnvironmentDiscoverer to use FallbackJarStorage, e.g. for running server installs
 	public boolean forceFallbackStorage = false;
+	// Don't update configuration if the side to be downloaded is not the same as the current side
+	public boolean overrideInferredSide = false;
 	public LaunchOptions launch = new LaunchOptions();
 	public JarOptions jars = new JarOptions();
 	public AutoconfOptions autoconfig = new AutoconfOptions();
 
 	public static class LaunchOptions {
-		public String mainClass = "net.fabricmc.loader.launch.knot.KnotClient";
+		public String mainClass = null;
 	}
 
 	public static class JarOptions {
@@ -43,7 +45,7 @@ public class ConfigFile {
 		public boolean enable = true;
 		public String handler = "fabric";
 		public boolean forceUpdate = false;
-		public String side = "client";
+		public String side = null;
 	}
 
 	private ConfigFile(Path destFile) {

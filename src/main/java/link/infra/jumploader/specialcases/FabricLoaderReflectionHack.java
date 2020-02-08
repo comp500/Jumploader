@@ -1,5 +1,6 @@
 package link.infra.jumploader.specialcases;
 
+import link.infra.jumploader.resources.ParsedArguments;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
@@ -55,8 +56,7 @@ public class FabricLoaderReflectionHack implements ReflectionHack {
 	}
 
 	@Override
-	public boolean shouldApply(List<URL> loadedJars, String mainClass) {
-		Pattern hackTest = Pattern.compile("fabric-loader-(.+)\\.jar$");
-		return RegexUtil.patternMatchesJars(hackTest, loadedJars);
+	public boolean shouldApply(List<URL> loadedJars, String mainClass, ParsedArguments gameArguments) {
+		return RegexUtil.patternMatchesJars(Pattern.compile("fabric-loader-(.+)\\.jar$"), loadedJars);
 	}
 }
