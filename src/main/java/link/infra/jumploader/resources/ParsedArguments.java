@@ -9,7 +9,7 @@ import java.util.*;
 
 public class ParsedArguments {
 	public final Map<String, String> arguments = new HashMap<>();
-	private static Logger LOGGER = LogManager.getLogger();
+	private static final Logger LOGGER = LogManager.getLogger();
 
 	public final String mcVersion;
 	public final Path gameDir;

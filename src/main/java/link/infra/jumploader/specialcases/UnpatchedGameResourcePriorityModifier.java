@@ -18,7 +18,7 @@ import java.util.List;
 import java.util.regex.Pattern;
 
 public class UnpatchedGameResourcePriorityModifier implements JarResourcePriorityModifier {
-	private static Logger LOGGER = LogManager.getLogger();
+	private static final Logger LOGGER = LogManager.getLogger();
 
 	@Override
 	public boolean shouldApplyClass(String className) {

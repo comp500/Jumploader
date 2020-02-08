@@ -6,8 +6,8 @@ import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicInteger;
 
 public class DownloadWorkerManager<T> {
-	private ExecutorService threadPool = Executors.newFixedThreadPool(5);
-	private ExecutorCompletionService<TaskResult> completionService = new ExecutorCompletionService<>(threadPool);
+	private final ExecutorService threadPool = Executors.newFixedThreadPool(5);
+	private final ExecutorCompletionService<TaskResult> completionService = new ExecutorCompletionService<>(threadPool);
 
 	private int queuedTasks = 0;
 	private final List<TaskStatus> statusValues = new ArrayList<>();
