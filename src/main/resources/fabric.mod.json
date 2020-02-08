@@ -4,7 +4,7 @@
   "version": "1.0.0",
 
   "name": "Jumploader",
-  "description": "TODO: a description",
+  "description": "Allows you to use Fabric mods in Twitch modpacks, by loading Fabric as if it were a Forge mod.",
   "authors": [
     "comp500"
   ],
