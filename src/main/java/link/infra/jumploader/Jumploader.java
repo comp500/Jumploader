@@ -22,6 +22,8 @@ import javax.annotation.Nonnull;
 import java.awt.*;
 import java.io.FileNotFoundException;
 import java.io.IOException;
+import java.io.PrintStream;
+import java.io.PrintWriter;
 import java.lang.reflect.Field;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
@@ -218,29 +220,20 @@ public class Jumploader implements ITransformationService {
 			LOGGER.warn("Minecraft shouldn't return from invoke() without spawning threads, loading is likely to have failed!");
 		} else {
 			LOGGER.info("Game returned from invoke(), attempting to stop ModLauncher init");
-			// Kill the current thread (the Server starts it's own thread)
-			Thread.currentThread().interrupt();
-			LOGGER.info("Failed to stop, starting infinite wait to stop ModLauncher init");
-			try {
-				Object obj = new Object();
-				//noinspection SynchronizationOnLocalVariableOrMethodParameter
-				synchronized (obj) {
-					obj.wait();
+			Thread.currentThread().setUncaughtExceptionHandler((t, e) -> {
+				// Do nothing!
+			});
+			throw new RuntimeException("Closing main thread, not an exception!"){
+				@Override
+				public void printStackTrace(PrintStream s) {
+					// Do nothing!
 				}
-			} catch (InterruptedException ignored) {
-				// We'll be interrupted at least once thanks to interrupt(), so try again
-				try {
-					Object obj = new Object();
-					//noinspection SynchronizationOnLocalVariableOrMethodParameter
-					synchronized (obj) {
-						obj.wait();
-					}
-				} catch (InterruptedException ignored2) {
-					Thread.currentThread().interrupt();
+
+				@Override
+				public void printStackTrace(PrintWriter s) {
+					// Do nothing!
 				}
-			}
-			LOGGER.error("Something funky is going on, ModLauncher seems to not care that I'm trying to break it!!!!!");
-			LOGGER.error("As this should never be reached normally, I'm going to System.exit(1)");
+			};
 		}
 		System.exit(1);
 	}
@@ -294,6 +287,12 @@ public class Jumploader implements ITransformationService {
 							LOGGER.info("Downloaded successfully: " + resolvedURL);
 							loadUrls.add(resolvedURL);
 						}
+					}
+
+					try {
+						workerManager.shutdown();
+					} catch (InterruptedException ex) {
+						throw new RuntimeException(ex);
 					}
 				} else {
 					GUIManager guiManager = new GUIManager(workerManager, argsParsed);
