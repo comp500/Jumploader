@@ -46,7 +46,7 @@ public class FabricLoaderReflectionHack implements ReflectionHack {
 	}
 
 	@Override
-	public void applyHack(ClassLoader loadingClassloader) {
+	public void applyReflectionHack(ClassLoader loadingClassloader) {
 		// Jimfs requires some funky hacks to load under a custom classloader, Java protocol handlers don't handle custom classloaders very well
 		try {
 			FabricLoaderReflectionHack.reloadFSHandlers(loadingClassloader);

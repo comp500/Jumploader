@@ -10,7 +10,7 @@ import java.util.List;
  */
 public class ServerSideRemoveFMLArgs implements ArgumentsModifier {
 	@Override
-	public void apply(List<URL> loadedJars, String mainClass, ParsedArguments gameArguments) {
+	public void modifyArguments(List<URL> loadedJars, String mainClass, ParsedArguments gameArguments) {
 		gameArguments.arguments.entrySet().removeIf(entry ->
 			entry.getKey().startsWith("fml") || entry.getKey().equals("launchTarget"));
 	}

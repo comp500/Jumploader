@@ -11,9 +11,8 @@ import link.infra.jumploader.resources.EnvironmentDiscoverer;
 import link.infra.jumploader.resources.ParsedArguments;
 import link.infra.jumploader.resources.ResolvableJar;
 import link.infra.jumploader.specialcases.ArgumentsModifier;
-import link.infra.jumploader.specialcases.ClassBlacklist;
-import link.infra.jumploader.specialcases.JarResourcePriorityModifier;
 import link.infra.jumploader.specialcases.ReflectionHack;
+import link.infra.jumploader.specialcases.SpecialCaseHandler;
 import link.infra.jumploader.ui.GUIManager;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -29,62 +28,16 @@ import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.net.URL;
 import java.net.URLClassLoader;
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
-import java.util.*;
-import java.util.stream.Collectors;
+import java.util.Set;
 
 public class Jumploader implements ITransformationService {
 	public static final String VERSION = "1.0.0";
 	public static final String USER_AGENT = "Jumploader/" + VERSION;
 
 	private final Logger LOGGER = LogManager.getLogger();
-
-	private static class JumploaderClassLoader extends URLClassLoader {
-		private final List<ClassBlacklist> blacklists;
-		private final List<JarResourcePriorityModifier> priorityModifiers;
-
-		public JumploaderClassLoader(URL[] urls, List<ClassBlacklist> blacklists, List<JarResourcePriorityModifier> priorityModifiers) {
-			super(urls);
-			this.blacklists = blacklists;
-			this.priorityModifiers = priorityModifiers;
-		}
-
-		@Override
-		public Enumeration<URL> getResources(String name) throws IOException {
-			for (JarResourcePriorityModifier modifier : priorityModifiers) {
-				if (modifier.shouldApplyClass(name)) {
-					ArrayList<URL> resList = Collections.list(super.getResources(name));
-					modifier.apply(resList);
-					return Collections.enumeration(resList);
-				}
-			}
-			return super.getResources(name);
-		}
-
-		@Override
-		public URL getResource(String name) {
-			for (JarResourcePriorityModifier modifier : priorityModifiers) {
-				if (modifier.shouldApplyClass(name)) {
-					try {
-						return getResources(name).nextElement();
-					} catch (IOException | NoSuchElementException e) {
-						return null;
-					}
-				}
-			}
-			return super.getResource(name);
-		}
-
-		@Override
-		protected Class<?> loadClass(String name, boolean resolve) throws ClassNotFoundException {
-			for (ClassBlacklist blacklist : blacklists) {
-				if (blacklist.shouldBlacklistClass(name)) {
-					throw new ClassNotFoundException();
-				}
-			}
-			return super.loadClass(name, resolve);
-		}
-	}
 
 	@Nonnull
 	@Override
@@ -159,24 +112,24 @@ public class Jumploader implements ITransformationService {
 
 		List<URL> loadUrls = resolveJars(config, argsParsed);
 
-		List<ClassBlacklist> appliedBlacklists = ClassBlacklist.BLACKLISTS.stream().filter(bl -> bl.shouldApply(loadUrls, config.launch.mainClass, argsParsed)).collect(Collectors.toList());
-		List<JarResourcePriorityModifier> priorityModifiers = JarResourcePriorityModifier.MODIFIERS.stream().filter(bl -> bl.shouldApply(loadUrls, config.launch.mainClass, argsParsed)).collect(Collectors.toList());
+		SpecialCaseHandler specialCaseHandler = new SpecialCaseHandler();
+		specialCaseHandler.filterAppliedCases(loadUrls, config.launch.mainClass, argsParsed);
 
 		// Create the classloader with the found JARs
-		URLClassLoader newLoader = new JumploaderClassLoader(loadUrls.toArray(new URL[0]), appliedBlacklists, priorityModifiers);
+		URLClassLoader newLoader = new JumploaderClassLoader(loadUrls.toArray(new URL[0]), specialCaseHandler);
 		Thread.currentThread().setContextClassLoader(newLoader);
 
 		// Apply the argument modifiers
-		for (ArgumentsModifier modifier : ArgumentsModifier.MODIFIERS) {
+		for (ArgumentsModifier modifier : specialCaseHandler.getImplementingCases(ArgumentsModifier.class)) {
 			if (modifier.shouldApply(loadUrls, config.launch.mainClass, argsParsed)) {
-				modifier.apply(loadUrls, config.launch.mainClass, argsParsed);
+				modifier.modifyArguments(loadUrls, config.launch.mainClass, argsParsed);
 			}
 		}
 
 		// Apply the reflection hacks (mainly to get Java to recognize jimfs)
-		for (ReflectionHack hack : ReflectionHack.HACKS) {
+		for (ReflectionHack hack : specialCaseHandler.getImplementingCases(ReflectionHack.class)) {
 			if (hack.shouldApply(loadUrls, config.launch.mainClass, argsParsed)) {
-				hack.applyHack(newLoader);
+				hack.applyReflectionHack(newLoader);
 			}
 		}
 
