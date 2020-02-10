@@ -9,7 +9,7 @@ Jumploader is a mod that allows the use of Fabric mods in Twitch modpacks, by lo
 
 ## What it doesn't do
 - Jumploader doesn't let you run Fabric mods in tandem with Forge mods - it hijacks the launching process so that Forge never loads. See [Patchwork](https://github.com/PatchworkMC) for a project aiming to do this.
-- Jumploader doesn't currently work very well on the client for loading a Minecraft game with a different major version (including snapshots) to the currently loaded game, as supplementary assets (such as sounds) are downloaded separately by the game launcher.
+- Jumploader doesn't currently work very well on the client for loading a Minecraft game with a different major version (including snapshots) to the currently loaded game, as supplementary assets (such as sounds) are downloaded separately by the game launcher. It may be possible, however, to make a Fabric mod that fixes this issue.
 
 ## Requirements
 Requires a Forge version that uses ModLauncher (or ModLauncher on it's own, without Forge) - this usually means 1.13 or newer.

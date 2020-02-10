@@ -116,6 +116,13 @@ public class Jumploader implements ITransformationService {
 		SpecialCaseHandler specialCaseHandler = new SpecialCaseHandler();
 		specialCaseHandler.filterAppliedCases(loadUrls, config.launch.mainClass, argsParsed);
 
+		// Apply the classpath modifiers
+		for (ClasspathModifier modifier : specialCaseHandler.getImplementingCases(ClasspathModifier.class)) {
+			if (modifier.shouldApply(loadUrls, config.launch.mainClass, argsParsed)) {
+				modifier.modifyClasspath();
+			}
+		}
+
 		// Create the classloader with the found JARs
 		URLClassLoader newLoader = new JumploaderClassLoader(loadUrls.toArray(new URL[0]), specialCaseHandler);
 		Thread.currentThread().setContextClassLoader(newLoader);
@@ -131,13 +138,6 @@ public class Jumploader implements ITransformationService {
 		for (ReflectionHack hack : specialCaseHandler.getImplementingCases(ReflectionHack.class)) {
 			if (hack.shouldApply(loadUrls, config.launch.mainClass, argsParsed)) {
 				hack.applyReflectionHack(newLoader);
-			}
-		}
-
-		// Apply the classpath modifiers
-		for (ClasspathModifier modifier : specialCaseHandler.getImplementingCases(ClasspathModifier.class)) {
-			if (modifier.shouldApply(loadUrls, config.launch.mainClass, argsParsed)) {
-				modifier.modifyClasspath();
 			}
 		}
 
