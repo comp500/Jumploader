@@ -12,8 +12,8 @@ public class SpecialCaseHandler {
 		new FabricLoaderReflectionHack(),
 		new MixinHideModLauncherBlacklist(),
 		new ServerSideRemoveFMLArgs(),
-		new UnpatchedGameResourcePriorityModifier(),
-		new ClassRedefinerASM()
+		new ClassRedefinerASM(),
+		new ForgeJarClasspathModifier()
 	);
 
 	private final List<SpecialCase> appliedCases = new ArrayList<>();

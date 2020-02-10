@@ -5,7 +5,6 @@ import link.infra.jumploader.util.RegexUtil;
 
 import java.io.IOException;
 import java.net.URL;
-import java.util.Collections;
 import java.util.Enumeration;
 import java.util.List;
 import java.util.jar.Manifest;
@@ -14,7 +13,7 @@ import java.util.regex.Pattern;
 /**
  * If the version of ASM to be loaded isn't the same as the version already loaded (e.g. for ModLauncher), redefine ASM classes
  */
-public class ClassRedefinerASM implements ClassRedefiner, JarResourcePriorityModifier {
+public class ClassRedefinerASM implements ClassRedefiner {
 	@Override
 	public boolean shouldApply(List<URL> loadedJars, String mainClass, ParsedArguments gameArguments) {
 		// Attempt to determine the loaded version of ASM from the loaded manifests
@@ -43,16 +42,5 @@ public class ClassRedefinerASM implements ClassRedefiner, JarResourcePriorityMod
 	@Override
 	public boolean shouldRedefineClass(String name) {
 		return name.startsWith("org.objectweb.asm") || name.startsWith("org.ow2.asm");
-	}
-
-	@Override
-	public boolean shouldPrioritiseResource(String resourceName) {
-		return resourceName.startsWith("org/objectweb/asm") || resourceName.startsWith("org/ow2/asm");
-	}
-
-	@Override
-	public void modifyPriorities(List<URL> resourceList) {
-		// Reverse the order, so the required version of ASM is loaded first
-		Collections.reverse(resourceList);
 	}
 }

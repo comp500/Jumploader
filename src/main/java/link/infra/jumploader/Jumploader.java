@@ -11,6 +11,7 @@ import link.infra.jumploader.resources.EnvironmentDiscoverer;
 import link.infra.jumploader.resources.ParsedArguments;
 import link.infra.jumploader.resources.ResolvableJar;
 import link.infra.jumploader.specialcases.ArgumentsModifier;
+import link.infra.jumploader.specialcases.ClasspathModifier;
 import link.infra.jumploader.specialcases.ReflectionHack;
 import link.infra.jumploader.specialcases.SpecialCaseHandler;
 import link.infra.jumploader.ui.GUIManager;
@@ -130,6 +131,13 @@ public class Jumploader implements ITransformationService {
 		for (ReflectionHack hack : specialCaseHandler.getImplementingCases(ReflectionHack.class)) {
 			if (hack.shouldApply(loadUrls, config.launch.mainClass, argsParsed)) {
 				hack.applyReflectionHack(newLoader);
+			}
+		}
+
+		// Apply the classpath modifiers
+		for (ClasspathModifier modifier : specialCaseHandler.getImplementingCases(ClasspathModifier.class)) {
+			if (modifier.shouldApply(loadUrls, config.launch.mainClass, argsParsed)) {
+				modifier.modifyClasspath();
 			}
 		}
 
