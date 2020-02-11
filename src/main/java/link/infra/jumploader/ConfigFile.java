@@ -28,6 +28,8 @@ public class ConfigFile {
 	public boolean forceFallbackStorage = false;
 	// Don't update configuration if the side to be downloaded is not the same as the current side
 	public boolean overrideInferredSide = false;
+	// Disable the user interface - temporary fix for crashes on Linux!
+	public boolean disableUI = false;
 	public LaunchOptions launch = new LaunchOptions();
 	public JarOptions jars = new JarOptions();
 	public AutoconfOptions autoconfig = new AutoconfOptions();

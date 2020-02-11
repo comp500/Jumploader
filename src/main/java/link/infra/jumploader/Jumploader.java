@@ -229,7 +229,7 @@ public class Jumploader implements ITransformationService {
 					lwjglAvailable = true;
 				} catch (ClassNotFoundException ignored) {}
 
-				if (!lwjglAvailable || GraphicsEnvironment.isHeadless() || argsParsed.nogui) {
+				if (!lwjglAvailable || GraphicsEnvironment.isHeadless() || argsParsed.nogui || config.disableUI) {
 					while (!workerManager.isDone()) {
 						LOGGER.info("Progress: " + (workerManager.getWorkerProgress() * 100) + "%");
 						URL resolvedURL;
