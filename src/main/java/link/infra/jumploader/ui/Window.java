@@ -159,7 +159,7 @@ public class Window implements Component {
 	public void setIcons(List<String> iconPaths) {
 		List<ByteBuffer> buffersToFree = new ArrayList<>(iconPaths.size());
 
-		GLFWImage.Buffer buffer = GLFWImage.create(iconPaths.size());
+		GLFWImage.Buffer buffer = GLFWImage.malloc(iconPaths.size());
 		int i = 0;
 		try (MemoryStack stack = MemoryStack.stackPush()) {
 			IntBuffer w = stack.mallocInt(1);
