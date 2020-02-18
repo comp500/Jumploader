@@ -8,7 +8,7 @@ import link.infra.jumploader.resources.EnvironmentDiscoverer;
 import link.infra.jumploader.resources.MavenJar;
 import link.infra.jumploader.resources.MinecraftJar;
 import link.infra.jumploader.resources.ParsedArguments;
-import link.infra.jumploader.util.RequestJson;
+import link.infra.jumploader.util.RequestUtils;
 
 import java.io.IOException;
 import java.net.URI;
@@ -34,7 +34,7 @@ public class FabricAutoconfHandler implements AutoconfHandler {
 			String side = configFile.autoconfig.side != null ? configFile.autoconfig.side : args.inferredSide;
 			try {
 				URL loaderJsonUrl = new URI("https", "meta.fabricmc.net", "/v2/versions/loader/" + args.mcVersion, null).toURL();
-				JsonArray manifestData = RequestJson.getJson(loaderJsonUrl).getAsJsonArray();
+				JsonArray manifestData = RequestUtils.getJson(loaderJsonUrl).getAsJsonArray();
 				if (manifestData.size() == 0) {
 					throw new RuntimeException("Failed to update configuration: no Fabric versions available!");
 				}

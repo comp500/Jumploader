@@ -16,14 +16,6 @@ public class SHA1HashingInputStream extends FilterInputStream {
 	private final byte[] compareToHash;
 	private final MessageDigest digest;
 
-	public static class InvalidHashException extends IOException {
-		public final String hashFound;
-
-		public InvalidHashException(String hashFound) {
-			this.hashFound = hashFound;
-		}
-	}
-
 	public static Function<InputStream, InputStream> transformer(String compareToHash) {
 		return inputStream -> new SHA1HashingInputStream(inputStream, compareToHash);
 	}

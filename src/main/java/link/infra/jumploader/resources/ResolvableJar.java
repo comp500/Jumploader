@@ -2,6 +2,7 @@ package link.infra.jumploader.resources;
 
 import link.infra.jumploader.DownloadWorkerManager;
 import link.infra.jumploader.Jumploader;
+import link.infra.jumploader.util.InvalidHashException;
 
 import javax.annotation.Nonnull;
 import java.io.FileNotFoundException;
@@ -14,6 +15,7 @@ import java.net.URL;
 import java.net.URLConnection;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.StandardCopyOption;
 import java.util.function.Function;
 
 public abstract class ResolvableJar {
@@ -108,9 +110,15 @@ public abstract class ResolvableJar {
 		conn.setRequestProperty("Accept", "application/octet-stream");
 
 		int contentLength = conn.getContentLength();
+		Path destPathTemp = destPath.resolveSibling(destPath.getFileName() + ".tmp");
 		try (InputStream res = bytesTransformer.apply(conn.getInputStream());
 			BytesReportingInputStream bris = new BytesReportingInputStream(res, status, contentLength)) {
-			Files.copy(bris, destPath);
+			Files.copy(bris, destPathTemp, StandardCopyOption.REPLACE_EXISTING);
+			Files.move(destPathTemp, destPath);
+		} catch (InvalidHashException e) {
+			Files.deleteIfExists(destPath);
+			Files.deleteIfExists(destPathTemp);
+			throw e;
 		}
 	}
 

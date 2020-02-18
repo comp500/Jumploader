@@ -1,9 +1,15 @@
 package link.infra.jumploader.resources;
 
 import link.infra.jumploader.DownloadWorkerManager;
+import link.infra.jumploader.util.InvalidHashException;
+import link.infra.jumploader.util.RequestUtils;
+import link.infra.jumploader.util.SHA1HashingInputStream;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 
 import java.io.FileNotFoundException;
 import java.io.IOException;
+import java.net.MalformedURLException;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.net.URL;
@@ -13,6 +19,8 @@ import java.nio.file.Path;
 public class MavenJar extends ResolvableJar {
 	public String mavenPath;
 	public String repoUrl;
+
+	private static final Logger LOGGER = LogManager.getLogger();
 
 	public MavenJar(EnvironmentDiscoverer.JarStorageLocation jarStorage) {
 		super(jarStorage);
@@ -33,11 +41,26 @@ public class MavenJar extends ResolvableJar {
 		throw new FileNotFoundException();
 	}
 
+	private static URL getSha1Url(URL downloadUrl) throws MalformedURLException {
+		return new URL(downloadUrl.getProtocol(), downloadUrl.getHost(), downloadUrl.getPort(), downloadUrl.getFile() + ".sha1");
+	}
+
 	@Override
 	public URL resolveRemote(DownloadWorkerManager.TaskStatus status, ParsedArguments args) throws URISyntaxException, IOException {
 		URL downloadUrl = resolveMavenPath(new URI(repoUrl), mavenPath).toURL();
 		Path jarPath = jarStorage.getMavenJar(mavenPath);
-		downloadFile(status, downloadUrl, jarPath, is -> is);
+
+		String sha1Hash = RequestUtils.getString(getSha1Url(downloadUrl));
+
+		try {
+			downloadFile(status, downloadUrl, jarPath, SHA1HashingInputStream.transformer(sha1Hash));
+		} catch (InvalidHashException e) {
+			// TODO: better UI for this?
+			LOGGER.error("Maven JAR hash mismatch for " + downloadUrl);
+			LOGGER.error("Expected: " + sha1Hash);
+			LOGGER.error("Found:    " + e.hashFound);
+			throw new RuntimeException("Failed to download Maven JAR!");
+		}
 		return pathToURL(jarPath);
 	}
 

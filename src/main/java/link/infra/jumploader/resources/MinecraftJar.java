@@ -2,6 +2,7 @@ package link.infra.jumploader.resources;
 
 import link.infra.jumploader.DownloadWorkerManager;
 import link.infra.jumploader.meta.MinecraftDownloadApi;
+import link.infra.jumploader.util.InvalidHashException;
 import link.infra.jumploader.util.SHA1HashingInputStream;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -49,12 +50,11 @@ public class MinecraftJar extends ResolvableJar {
 		Path gameJarPath = jarStorage.getGameJar(gameVersion, downloadType);
 		try {
 			downloadFile(status, details.url, gameJarPath, SHA1HashingInputStream.transformer(details.sha1));
-		} catch (SHA1HashingInputStream.InvalidHashException e) {
+		} catch (InvalidHashException e) {
 			// TODO: better UI for this?
 			LOGGER.error("Minecraft JAR hash mismatch for " + details.url);
 			LOGGER.error("Expected: " + details.sha1);
 			LOGGER.error("Found:    " + e.hashFound);
-			Files.deleteIfExists(gameJarPath);
 			throw new RuntimeException("Failed to download Minecraft JAR!");
 		}
 		return pathToURL(gameJarPath);
