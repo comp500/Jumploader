@@ -47,7 +47,10 @@ public class ConfigFile {
 		public boolean enable = true;
 		public String handler = "fabric";
 		public boolean forceUpdate = false;
+		// Specifies the side to launch (e.g. for ServerStarter), defaults to "client"
 		public String side = null;
+		// Overrides the game version launched by Forge
+		public String gameVersion = null;
 	}
 
 	private ConfigFile(Path destFile) {

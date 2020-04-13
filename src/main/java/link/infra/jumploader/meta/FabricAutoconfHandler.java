@@ -24,7 +24,8 @@ public class FabricAutoconfHandler implements AutoconfHandler {
 		if (configFile.autoconfig.forceUpdate || configFile.jars == null) {
 			return true;
 		}
-		return !AutoconfHandler.doesConfigContainGame(args.mcVersion, args.inferredSide, configFile);
+		String gameVersion = configFile.autoconfig.gameVersion != null ? configFile.autoconfig.gameVersion : args.mcVersion;
+		return !AutoconfHandler.doesConfigContainGame(gameVersion, args.inferredSide, configFile);
 	}
 
 	@Override
@@ -32,8 +33,10 @@ public class FabricAutoconfHandler implements AutoconfHandler {
 		if (shouldUpdate(configFile, args, env)) {
 			// Default to the inferred side
 			String side = configFile.autoconfig.side != null ? configFile.autoconfig.side : args.inferredSide;
+			// Default to the game version
+			String gameVersion = configFile.autoconfig.gameVersion != null ? configFile.autoconfig.gameVersion : args.mcVersion;
 			try {
-				URL loaderJsonUrl = new URI("https", "meta.fabricmc.net", "/v2/versions/loader/" + args.mcVersion, null).toURL();
+				URL loaderJsonUrl = new URI("https", "meta.fabricmc.net", "/v2/versions/loader/" + gameVersion, null).toURL();
 				JsonArray manifestData = RequestUtils.getJson(loaderJsonUrl).getAsJsonArray();
 				if (manifestData.size() == 0) {
 					throw new RuntimeException("Failed to update configuration: no Fabric versions available!");
@@ -42,7 +45,7 @@ public class FabricAutoconfHandler implements AutoconfHandler {
 				configFile.resetConfiguredJars();
 				JsonObject latestLoaderData = manifestData.get(0).getAsJsonObject();
 
-				configFile.jars.minecraft.add(new MinecraftJar(env.jarStorage, args.mcVersion, side));
+				configFile.jars.minecraft.add(new MinecraftJar(env.jarStorage, gameVersion, side));
 
 				String loaderMaven = latestLoaderData.getAsJsonObject("loader").get("maven").getAsString();
 				configFile.jars.maven.add(new MavenJar(env.jarStorage, loaderMaven, FABRIC_MAVEN));
