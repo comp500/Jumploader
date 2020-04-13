@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "id": "jumploader",
-  "version": "1.0.5",
+  "version": "1.0.6",
 
   "name": "Jumploader",
   "description": "Allows the use of Fabric mods in Twitch modpacks, by loading Fabric as if it were a Forge mod.",
