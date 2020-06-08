@@ -64,6 +64,22 @@ class JumploaderClassLoader extends URLClassLoader {
 				}
 			}
 		}
-		return super.loadClass(name, resolve);
+		// Prioritise classes from self to parent classloader
+		synchronized (getClassLoadingLock(name)) {
+			Class<?> c = findLoadedClass(name);
+			if (c == null) {
+				try {
+					// Try to find from self
+					c = findClass(name);
+				} catch (ClassNotFoundException e) {
+					// If it failed, try the parent classloader
+					return super.loadClass(name, resolve);
+				}
+			}
+			if (resolve) {
+				resolveClass(c);
+			}
+			return c;
+		}
 	}
 }
