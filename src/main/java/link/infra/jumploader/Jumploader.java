@@ -35,7 +35,7 @@ import java.util.List;
 import java.util.Set;
 
 public class Jumploader implements ITransformationService {
-	public static final String VERSION = "1.0.7";
+	public static final String VERSION = "1.0.8";
 	public static final String USER_AGENT = "Jumploader/" + VERSION;
 
 	private final Logger LOGGER = LogManager.getLogger();
@@ -184,7 +184,7 @@ public class Jumploader implements ITransformationService {
 			Thread.currentThread().setUncaughtExceptionHandler((t, e) -> {
 				// Do nothing!
 			});
-			throw new RuntimeException("Closing main thread, not an exception!"){
+			throw new ThreadCloseException("Jumploader is closing the main thread, not an error!"){
 				@Override
 				public void printStackTrace(PrintStream s) {
 					// Do nothing!
@@ -197,6 +197,12 @@ public class Jumploader implements ITransformationService {
 			};
 		}
 		System.exit(1);
+	}
+
+	private static class ThreadCloseException extends RuntimeException {
+		public ThreadCloseException(String reason) {
+			super(reason);
+		}
 	}
 
 	private List<URL> resolveJars(ConfigFile config, ParsedArguments argsParsed) {

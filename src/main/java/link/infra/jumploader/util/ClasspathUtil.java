@@ -11,8 +11,9 @@ import java.util.*;
 public class ClasspathUtil {
 	private ClasspathUtil() {}
 
-	public static void removeMatchingClasses(List<String> classesToTest) {
+	public static Set<Path> removeMatchingClasses(List<String> classesToTest) {
 		List<String> classPath = new ArrayList<>(Arrays.asList(System.getProperty("java.class.path").split(File.pathSeparator)));
+		Set<Path> blacklistedJars = new HashSet<>();
 
 		ClassLoader throwawayClassLoader = new ClassLoader() {};
 		Set<Path> sources = new HashSet<>();
@@ -28,6 +29,7 @@ public class ClasspathUtil {
 		while (iter.hasNext()) {
 			String currentJar = iter.next();
 			for (Path matchingSourcePath : sources) {
+				blacklistedJars.add(matchingSourcePath);
 				try {
 					if (Files.isSameFile(Paths.get(currentJar), matchingSourcePath)) {
 						iter.remove();
@@ -37,5 +39,6 @@ public class ClasspathUtil {
 			}
 		}
 		System.setProperty("java.class.path", String.join(File.pathSeparator, classPath));
+		return blacklistedJars;
 	}
 }

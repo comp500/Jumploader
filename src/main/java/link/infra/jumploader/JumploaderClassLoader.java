@@ -3,6 +3,7 @@ package link.infra.jumploader;
 import link.infra.jumploader.specialcases.ClassBlacklist;
 import link.infra.jumploader.specialcases.ClassRedefiner;
 import link.infra.jumploader.specialcases.SpecialCaseHandler;
+import link.infra.jumploader.specialcases.URLBlacklist;
 
 import java.io.IOException;
 import java.net.URL;
@@ -14,12 +15,14 @@ import java.util.List;
 class JumploaderClassLoader extends URLClassLoader {
 	private final List<ClassBlacklist> blacklists;
 	private final List<ClassRedefiner> classRedefiners;
+	private final List<URLBlacklist> urlBlacklists;
 	private final ClassLoader parent = JumploaderClassLoader.class.getClassLoader();
 
 	public JumploaderClassLoader(URL[] urls, SpecialCaseHandler specialCaseHandler) {
 		super(urls, JumploaderClassLoader.class.getClassLoader());
 		this.blacklists = specialCaseHandler.getImplementingCases(ClassBlacklist.class);
 		this.classRedefiners = specialCaseHandler.getImplementingCases(ClassRedefiner.class);
+		this.urlBlacklists = specialCaseHandler.getImplementingCases(URLBlacklist.class);
 	}
 
 	@Override
@@ -27,6 +30,8 @@ class JumploaderClassLoader extends URLClassLoader {
 		// Prioritise self over parent classloader
 		List<URL> urls = Collections.list(findResources(name));
 		urls.addAll(Collections.list(parent.getResources(name)));
+		// Hide blacklisted URLs, as fabric API looks at the back of the list anyway
+		urls.removeIf(u -> urlBlacklists.stream().filter(b -> b.shouldBlacklistUrl(u)).limit(1).count() > 0);
 		return Collections.enumeration(urls);
 	}
 
@@ -37,6 +42,7 @@ class JumploaderClassLoader extends URLClassLoader {
 		if (url != null) {
 			return url;
 		}
+		// TODO: use the blacklist in getResource as well?
 		return parent.getResource(name);
 	}
 
