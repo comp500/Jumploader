@@ -13,3 +13,6 @@ Jumploader is a mod that allows the use of Fabric mods in Twitch modpacks, by lo
 
 ## Requirements
 Requires a Forge version that uses ModLauncher (or ModLauncher on it's own, without Forge) - this usually means 1.13 or newer.
+
+## Compiliation notes
+- Needs to be compiled with Java 9 or newer, using Java 8 language level, because some of the APIs needed for compatibility with Java 12 and newer are only available for Java 9 and newer.

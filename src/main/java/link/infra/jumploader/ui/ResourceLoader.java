@@ -5,6 +5,7 @@ import org.lwjgl.system.MemoryUtil;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.nio.Buffer;
 import java.nio.ByteBuffer;
 
 public class ResourceLoader {
@@ -29,7 +30,8 @@ public class ResourceLoader {
 		// Horribly inefficient but it works I guess
 		ByteBuffer bufferOut = MemoryUtil.memAlloc(buffer.size());
 		bufferOut.put(buffer.toByteArray());
-		bufferOut.flip();
+		// See https://github.com/hazelcast/hazelcast/issues/14214
+		((Buffer)bufferOut).flip();
 		return bufferOut;
 	}
 }
