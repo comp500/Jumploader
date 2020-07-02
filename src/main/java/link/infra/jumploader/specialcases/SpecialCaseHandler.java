@@ -9,11 +9,12 @@ import java.util.List;
 
 public class SpecialCaseHandler {
 	private final List<SpecialCase> allCases = Arrays.asList(
-		new FabricLoaderReflectionHack(),
+		new JimfsReflectionHack(),
 		new MixinHideModLauncherBlacklist(),
 		new ServerSideRemoveFMLArgs(),
 		new ClassRedefinerASM(),
-		new ForgeJarClasspathModifier()
+		new ForgeJarClasspathModifier(),
+		new FileSystemProviderAppender()
 	);
 
 	private final List<SpecialCase> appliedCases = new ArrayList<>();
