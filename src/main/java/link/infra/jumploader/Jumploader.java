@@ -35,7 +35,7 @@ import java.util.List;
 import java.util.Set;
 
 public class Jumploader implements ITransformationService {
-	public static final String VERSION = "1.0.10";
+	public static final String VERSION = "1.0.11";
 	public static final String USER_AGENT = "Jumploader/" + VERSION;
 
 	private final Logger LOGGER = LogManager.getLogger();
@@ -66,6 +66,15 @@ public class Jumploader implements ITransformationService {
 	@Override
 	public void onLoad(@Nonnull IEnvironment env, @Nonnull Set<String> set) {
 		LOGGER.info("Jumploader " + VERSION + " initialising, discovering environment...");
+
+		// OpenJ9 is currently unsupported - it does not allow bypassing the reflection blacklist to change the system classloader
+		// See FabricLoaderReflectionHack.java
+		if (System.getProperty("java.vm.name", "").toLowerCase().contains("openj9")) {
+			LOGGER.fatal("OpenJ9 is currently unsupported with Jumploader");
+			LOGGER.fatal("Please use Hotspot, or install your desired modloader directly instead of jumploading it!");
+			LOGGER.fatal("See https://fabricmc.net/wiki/install for a Fabric installation guide");
+			System.exit(1);
+		}
 
 		// Get the game arguments
 		ParsedArguments argsParsedTemp;
