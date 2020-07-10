@@ -6,16 +6,14 @@ import cpw.mods.modlauncher.Launcher;
 import cpw.mods.modlauncher.api.IEnvironment;
 import cpw.mods.modlauncher.api.ITransformationService;
 import cpw.mods.modlauncher.api.ITransformer;
-import link.infra.jumploader.meta.AutoconfHandler;
-import link.infra.jumploader.resources.EnvironmentDiscoverer;
-import link.infra.jumploader.resources.ParsedArguments;
-import link.infra.jumploader.resources.ResolvableJar;
-import link.infra.jumploader.specialcases.ArgumentsModifier;
-import link.infra.jumploader.specialcases.ClasspathModifier;
-import link.infra.jumploader.specialcases.ReflectionHack;
-import link.infra.jumploader.specialcases.SpecialCaseHandler;
-import link.infra.jumploader.ui.GUIManager;
-import link.infra.jumploader.util.ReflectionUtil;
+import link.infra.jumploader.launch.PreLaunchDispatcher;
+import link.infra.jumploader.launch.ReflectionUtil;
+import link.infra.jumploader.launch.arguments.ParsedArguments;
+import link.infra.jumploader.launch.classpath.ClasspathReplacer;
+import link.infra.jumploader.resolution.meta.AutoconfHandler;
+import link.infra.jumploader.resolution.resources.EnvironmentDiscoverer;
+import link.infra.jumploader.resolution.resources.ResolvableJar;
+import link.infra.jumploader.resolution.ui.GUIManager;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
@@ -27,6 +25,7 @@ import java.io.PrintStream;
 import java.io.PrintWriter;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
+import java.net.URISyntaxException;
 import java.net.URL;
 import java.net.URLClassLoader;
 import java.util.ArrayList;
@@ -35,7 +34,7 @@ import java.util.List;
 import java.util.Set;
 
 public class Jumploader implements ITransformationService {
-	public static final String VERSION = "1.0.12";
+	public static final String VERSION = "2.0.0";
 	public static final String USER_AGENT = "Jumploader/" + VERSION;
 
 	private final Logger LOGGER = LogManager.getLogger();
@@ -89,6 +88,7 @@ public class Jumploader implements ITransformationService {
 			throw new RuntimeException("Failed to read config file", e);
 		}
 
+		// TODO: refactor autoconfig system
 		// Call the configured autoconfig handler
 		if (config.autoconfig != null && config.autoconfig.enable) {
 			LOGGER.info("Configuration successfully loaded! Updating configuration from handler: " + config.autoconfig.handler);
@@ -106,33 +106,19 @@ public class Jumploader implements ITransformationService {
 
 		List<URL> loadUrls = resolveJars(config, argsParsed);
 
-		SpecialCaseHandler specialCaseHandler = new SpecialCaseHandler();
-		specialCaseHandler.filterAppliedCases(loadUrls, config.launch.mainClass, argsParsed);
-
-		// Apply the classpath modifiers
-		for (ClasspathModifier modifier : specialCaseHandler.getImplementingCases(ClasspathModifier.class)) {
-			if (modifier.shouldApply(loadUrls, config.launch.mainClass, argsParsed)) {
-				modifier.modifyClasspath();
-			}
+		// Replace the classpath URLs
+		try {
+			ClasspathReplacer.replaceClasspath(loadUrls);
+		} catch (URISyntaxException e) {
+			throw new RuntimeException("Failed to parse URL in replacement classpath", e);
 		}
 
-		// Create the classloader with the found JARs
-		URLClassLoader newLoader = new JumploaderClassLoader(loadUrls.toArray(new URL[0]), specialCaseHandler);
+		// Create the classloader with the found JARs - set the parent classloader to null so it only delegates to bootstrap
+		URLClassLoader newLoader = new URLClassLoader(loadUrls.toArray(new URL[0]), null);
 		Thread.currentThread().setContextClassLoader(newLoader);
 
-		// Apply the argument modifiers
-		for (ArgumentsModifier modifier : specialCaseHandler.getImplementingCases(ArgumentsModifier.class)) {
-			if (modifier.shouldApply(loadUrls, config.launch.mainClass, argsParsed)) {
-				modifier.modifyArguments(loadUrls, config.launch.mainClass, argsParsed);
-			}
-		}
-
-		// Apply the reflection hacks (mainly to get Java to recognize jimfs)
-		for (ReflectionHack hack : specialCaseHandler.getImplementingCases(ReflectionHack.class)) {
-			if (hack.shouldApply(loadUrls, config.launch.mainClass, argsParsed)) {
-				hack.applyReflectionHack(newLoader);
-			}
-		}
+		// Dispatch prelaunch handlers
+		PreLaunchDispatcher.dispatch(newLoader);
 
 		int preLaunchRunningThreads = Thread.currentThread().getThreadGroup().activeCount();
 
@@ -198,6 +184,7 @@ public class Jumploader implements ITransformationService {
 		}
 	}
 
+	// TODO: move to separate classes
 	private List<URL> resolveJars(ConfigFile config, ParsedArguments argsParsed) {
 		List<ResolvableJar> configuredJars = config.getConfiguredJars();
 		List<ResolvableJar> downloadRequiredJars = new ArrayList<>();

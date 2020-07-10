@@ -4,10 +4,10 @@ import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import com.google.gson.InstanceCreator;
 import com.google.gson.JsonParseException;
-import link.infra.jumploader.resources.EnvironmentDiscoverer;
-import link.infra.jumploader.resources.MavenJar;
-import link.infra.jumploader.resources.MinecraftJar;
-import link.infra.jumploader.resources.ResolvableJar;
+import link.infra.jumploader.resolution.resources.EnvironmentDiscoverer;
+import link.infra.jumploader.resolution.resources.MavenJar;
+import link.infra.jumploader.resolution.resources.MinecraftJar;
+import link.infra.jumploader.resolution.resources.ResolvableJar;
 
 import java.io.IOException;
 import java.io.InputStreamReader;
