@@ -35,14 +35,15 @@ public abstract class ResolvableJar {
 
 	protected static URI resolveMavenPath(URI baseURL, String mavenPath) {
 		String[] mavenPathSplit = mavenPath.split(":");
-		if (mavenPathSplit.length != 3) {
+		if (mavenPathSplit.length != 3 && mavenPathSplit.length != 4) {
 			throw new RuntimeException("Invalid maven path: " + mavenPath);
 		}
+		String classifierPart = mavenPathSplit.length == 3 ? "" : "-" + mavenPathSplit[3];
 		return baseURL.resolve(
 			String.join("/", mavenPathSplit[0].split("\\.")) + "/" + // Group ID
 			mavenPathSplit[1] + "/" + // Artifact ID
 			mavenPathSplit[2] + "/" + // Version
-			mavenPathSplit[1] + "-" + mavenPathSplit[2] + ".jar"
+			mavenPathSplit[1] + "-" + mavenPathSplit[2] + classifierPart + ".jar"
 		);
 	}
 

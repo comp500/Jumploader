@@ -27,14 +27,15 @@ public class EnvironmentDiscoverer {
 
 	private static Path resolveMavenPathOnDisk(Path baseDir, String mavenPath) {
 		String[] mavenPathSplit = mavenPath.split(":");
-		if (mavenPathSplit.length != 3) {
+		if (mavenPathSplit.length != 3 && mavenPathSplit.length != 4) {
 			throw new RuntimeException("Invalid maven path: " + mavenPath);
 		}
+		String classifierPart = mavenPathSplit.length == 3 ? "" : "-" + mavenPathSplit[3];
 		return baseDir
 			.resolve(Paths.get(".", mavenPathSplit[0].split("\\."))) // Group ID
 			.resolve(mavenPathSplit[1]) // Artifact ID
 			.resolve(mavenPathSplit[2]) // Version
-			.resolve(mavenPathSplit[1] + "-" + mavenPathSplit[2] + ".jar");
+			.resolve(mavenPathSplit[1] + "-" + mavenPathSplit[2] + classifierPart + ".jar");
 	}
 
 	private static class FallbackJarStorage implements JarStorageLocation {

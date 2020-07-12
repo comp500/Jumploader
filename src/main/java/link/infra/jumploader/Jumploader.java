@@ -6,6 +6,7 @@ import cpw.mods.modlauncher.Launcher;
 import cpw.mods.modlauncher.api.IEnvironment;
 import cpw.mods.modlauncher.api.ITransformationService;
 import cpw.mods.modlauncher.api.ITransformer;
+import link.infra.jumploader.launch.PlatformClassLoaderGetter;
 import link.infra.jumploader.launch.PreLaunchDispatcher;
 import link.infra.jumploader.launch.ReflectionUtil;
 import link.infra.jumploader.launch.arguments.ParsedArguments;
@@ -114,7 +115,7 @@ public class Jumploader implements ITransformationService {
 		}
 
 		// Create the classloader with the found JARs - set the parent classloader to null so it only delegates to bootstrap
-		URLClassLoader newLoader = new URLClassLoader(loadUrls.toArray(new URL[0]), null);
+		URLClassLoader newLoader = new URLClassLoader(loadUrls.toArray(new URL[0]), PlatformClassLoaderGetter.get());
 		Thread.currentThread().setContextClassLoader(newLoader);
 
 		// Dispatch prelaunch handlers
