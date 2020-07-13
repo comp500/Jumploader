@@ -6,7 +6,6 @@ import cpw.mods.modlauncher.Launcher;
 import cpw.mods.modlauncher.api.IEnvironment;
 import cpw.mods.modlauncher.api.ITransformationService;
 import cpw.mods.modlauncher.api.ITransformer;
-import link.infra.jumploader.launch.PlatformClassLoaderGetter;
 import link.infra.jumploader.launch.PreLaunchDispatcher;
 import link.infra.jumploader.launch.ReflectionUtil;
 import link.infra.jumploader.launch.arguments.ParsedArguments;
@@ -114,8 +113,10 @@ public class Jumploader implements ITransformationService {
 			throw new RuntimeException("Failed to parse URL in replacement classpath", e);
 		}
 
-		// Create the classloader with the found JARs - set the parent classloader to null so it only delegates to bootstrap
-		URLClassLoader newLoader = new URLClassLoader(loadUrls.toArray(new URL[0]), PlatformClassLoaderGetter.get());
+		// Create the classloader with the found JARs
+		// Set the parent classloader to the parent of the AppClassLoader
+		// This will be ExtClassLoader on Java 8 or older, PlatformClassLoader on Java 9 or newer - ensures extension classes will work
+		URLClassLoader newLoader = new URLClassLoader(loadUrls.toArray(new URL[0]), ClassLoader.getSystemClassLoader().getParent());
 		Thread.currentThread().setContextClassLoader(newLoader);
 
 		// Dispatch prelaunch handlers
