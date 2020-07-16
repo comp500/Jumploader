@@ -1,4 +1,4 @@
-package link.infra.jumploader.resolution.meta;
+package link.infra.jumploader.resolution.sources.minecraft;
 
 import com.google.gson.Gson;
 import com.google.gson.JsonArray;

@@ -11,7 +11,7 @@ import link.infra.jumploader.launch.ReflectionUtil;
 import link.infra.jumploader.launch.arguments.ParsedArguments;
 import link.infra.jumploader.launch.classpath.ClasspathReplacer;
 import link.infra.jumploader.resolution.meta.AutoconfHandler;
-import link.infra.jumploader.resolution.resources.EnvironmentDiscoverer;
+import link.infra.jumploader.resolution.EnvironmentDiscoverer;
 import link.infra.jumploader.resolution.resources.ResolvableJar;
 import link.infra.jumploader.resolution.ui.GUIManager;
 import org.apache.logging.log4j.LogManager;

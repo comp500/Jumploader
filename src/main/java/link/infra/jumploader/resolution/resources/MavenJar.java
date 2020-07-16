@@ -2,6 +2,7 @@ package link.infra.jumploader.resolution.resources;
 
 import link.infra.jumploader.DownloadWorkerManager;
 import link.infra.jumploader.launch.arguments.ParsedArguments;
+import link.infra.jumploader.resolution.EnvironmentDiscoverer;
 import link.infra.jumploader.resolution.InvalidHashException;
 import link.infra.jumploader.resolution.RequestUtils;
 import link.infra.jumploader.resolution.SHA1HashingInputStream;

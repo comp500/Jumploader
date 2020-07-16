@@ -2,9 +2,10 @@ package link.infra.jumploader.resolution.resources;
 
 import link.infra.jumploader.DownloadWorkerManager;
 import link.infra.jumploader.launch.arguments.ParsedArguments;
+import link.infra.jumploader.resolution.EnvironmentDiscoverer;
 import link.infra.jumploader.resolution.InvalidHashException;
 import link.infra.jumploader.resolution.SHA1HashingInputStream;
-import link.infra.jumploader.resolution.meta.MinecraftDownloadApi;
+import link.infra.jumploader.resolution.sources.minecraft.MinecraftDownloadApi;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 

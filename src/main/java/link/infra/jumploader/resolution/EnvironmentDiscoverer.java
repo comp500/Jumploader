@@ -1,4 +1,4 @@
-package link.infra.jumploader.resolution.resources;
+package link.infra.jumploader.resolution;
 
 import link.infra.jumploader.launch.arguments.ParsedArguments;
 

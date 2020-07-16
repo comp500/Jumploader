@@ -4,7 +4,7 @@ import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import com.google.gson.InstanceCreator;
 import com.google.gson.JsonParseException;
-import link.infra.jumploader.resolution.resources.EnvironmentDiscoverer;
+import link.infra.jumploader.resolution.EnvironmentDiscoverer;
 import link.infra.jumploader.resolution.resources.MavenJar;
 import link.infra.jumploader.resolution.resources.MinecraftJar;
 import link.infra.jumploader.resolution.resources.ResolvableJar;

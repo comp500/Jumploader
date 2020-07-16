@@ -1,4 +1,4 @@
-package link.infra.jumploader.resolution.meta;
+package link.infra.jumploader.resolution.sources.fabric;
 
 import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
@@ -6,7 +6,8 @@ import com.google.gson.JsonObject;
 import link.infra.jumploader.ConfigFile;
 import link.infra.jumploader.launch.arguments.ParsedArguments;
 import link.infra.jumploader.resolution.RequestUtils;
-import link.infra.jumploader.resolution.resources.EnvironmentDiscoverer;
+import link.infra.jumploader.resolution.EnvironmentDiscoverer;
+import link.infra.jumploader.resolution.meta.AutoconfHandler;
 import link.infra.jumploader.resolution.resources.MavenJar;
 import link.infra.jumploader.resolution.resources.MinecraftJar;
 

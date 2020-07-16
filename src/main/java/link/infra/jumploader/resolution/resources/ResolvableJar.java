@@ -3,11 +3,10 @@ package link.infra.jumploader.resolution.resources;
 import link.infra.jumploader.DownloadWorkerManager;
 import link.infra.jumploader.Jumploader;
 import link.infra.jumploader.launch.arguments.ParsedArguments;
+import link.infra.jumploader.resolution.EnvironmentDiscoverer;
 import link.infra.jumploader.resolution.InvalidHashException;
 
-import javax.annotation.Nonnull;
 import java.io.FileNotFoundException;
-import java.io.FilterInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.net.MalformedURLException;
@@ -45,63 +44,6 @@ public abstract class ResolvableJar {
 			mavenPathSplit[2] + "/" + // Version
 			mavenPathSplit[1] + "-" + mavenPathSplit[2] + classifierPart + ".jar"
 		);
-	}
-
-	private static class BytesReportingInputStream extends FilterInputStream {
-		private final DownloadWorkerManager.TaskStatus status;
-		private int bytesDownloaded;
-
-		public BytesReportingInputStream(InputStream inputStream, DownloadWorkerManager.TaskStatus status, int contentLength) {
-			super(inputStream);
-			this.status = status;
-			if (contentLength != -1) {
-				status.setExpectedLength(contentLength);
-			}
-		}
-
-		@Override
-		public int read() throws IOException {
-			bytesDownloaded++;
-			if ((bytesDownloaded & 65535) == 0) {
-				status.setDownloaded(bytesDownloaded);
-			}
-			return super.read();
-		}
-
-		private int readBulkCallCount = 0;
-
-		@Override
-		public int read(@Nonnull byte[] b, int off, int len) throws IOException {
-			int bytesRead = super.read(b, off, len);
-			bytesDownloaded += bytesRead;
-			readBulkCallCount++;
-			if (readBulkCallCount > 10) {
-				status.setDownloaded(bytesDownloaded);
-				readBulkCallCount = 0;
-			}
-			return bytesRead;
-		}
-
-		@Override
-		public void reset() throws IOException {
-			throw new IOException("BytesReportingInputStream doesn't support reset()");
-		}
-
-		@Override
-		public boolean markSupported() {
-			return false;
-		}
-
-		@Override
-		public void mark(int readlimit) {
-			// Do nothing
-		}
-
-		@Override
-		public void close() throws IOException {
-			super.close();
-			status.setDownloaded(bytesDownloaded);
-		}
 	}
 
 	protected static void downloadFile(DownloadWorkerManager.TaskStatus status, URL downloadURI, Path destPath, Function<InputStream, InputStream> bytesTransformer) throws IOException {
