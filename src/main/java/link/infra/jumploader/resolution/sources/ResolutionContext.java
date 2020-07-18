@@ -3,13 +3,14 @@ package link.infra.jumploader.resolution.sources;
 import link.infra.jumploader.ConfigFile;
 import link.infra.jumploader.launch.arguments.ParsedArguments;
 import link.infra.jumploader.resolution.EnvironmentDiscoverer;
+import link.infra.jumploader.util.Side;
 
 public interface ResolutionContext {
 	ConfigFile getConfigFile();
 	EnvironmentDiscoverer getEnvironment();
 	ParsedArguments getArguments();
 
-	default String getLoadingSide() {
+	default Side getLoadingSide() {
 		ConfigFile configFile = getConfigFile();
 		if (configFile.autoconfig.side != null) {
 			return configFile.autoconfig.side;

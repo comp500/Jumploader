@@ -1,4 +1,4 @@
-package link.infra.jumploader.resolution;
+package link.infra.jumploader.resolution.download.verification;
 
 import org.apache.commons.codec.DecoderException;
 import org.apache.commons.codec.binary.Hex;
@@ -10,13 +10,12 @@ import java.io.InputStream;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.Arrays;
-import java.util.function.Function;
 
 public class SHA1HashingInputStream extends FilterInputStream {
 	private final byte[] compareToHash;
 	private final MessageDigest digest;
 
-	public static Function<InputStream, InputStream> transformer(String compareToHash) {
+	public static HashVerifierProvider verifier(String compareToHash) {
 		return inputStream -> new SHA1HashingInputStream(inputStream, compareToHash);
 	}
 
@@ -74,7 +73,7 @@ public class SHA1HashingInputStream extends FilterInputStream {
 			alreadyClosed = true;
 			byte[] result = digest.digest();
 			if (!Arrays.equals(result, compareToHash)) {
-				throw new InvalidHashException(Hex.encodeHexString(result));
+				throw new InvalidHashException(Hex.encodeHexString(compareToHash), Hex.encodeHexString(result));
 			}
 		}
 	}

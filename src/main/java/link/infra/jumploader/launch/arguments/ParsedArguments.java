@@ -1,5 +1,6 @@
 package link.infra.jumploader.launch.arguments;
 
+import link.infra.jumploader.util.Side;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
@@ -22,7 +23,7 @@ public class ParsedArguments {
 	public final int windowWidth;
 	public final int windowHeight;
 
-	public final String inferredSide;
+	public final Side inferredSide;
 	public final boolean nogui;
 
 	// TODO: use proxy arguments?
@@ -51,11 +52,7 @@ public class ParsedArguments {
 		accessToken = get("accessToken");
 		windowWidth = getIntOrDefault("width", 854);
 		windowHeight = getIntOrDefault("height", 480);
-		if (getOrDefault("launchTarget", "").contains("server")) {
-			inferredSide = "server";
-		} else {
-			inferredSide = "client";
-		}
+		inferredSide = Side.of(getOrDefault("launchTarget", ""));
 
 		removeFMLArgs(argumentsList);
 		replaceTwitchBrand(getOrDefault("version", ""), argumentsList, gameDir);

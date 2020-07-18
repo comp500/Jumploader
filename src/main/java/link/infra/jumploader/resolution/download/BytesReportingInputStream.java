@@ -1,6 +1,4 @@
-package link.infra.jumploader.resolution.resources;
-
-import link.infra.jumploader.DownloadWorkerManager;
+package link.infra.jumploader.resolution.download;
 
 import javax.annotation.Nonnull;
 import java.io.FilterInputStream;

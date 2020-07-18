@@ -5,9 +5,11 @@ import com.google.gson.GsonBuilder;
 import com.google.gson.InstanceCreator;
 import com.google.gson.JsonParseException;
 import link.infra.jumploader.resolution.EnvironmentDiscoverer;
+import link.infra.jumploader.resolution.ResolvableJar;
 import link.infra.jumploader.resolution.resources.MavenJar;
 import link.infra.jumploader.resolution.resources.MinecraftJar;
-import link.infra.jumploader.resolution.resources.ResolvableJar;
+import link.infra.jumploader.resolution.sources.SourcesRegistry;
+import link.infra.jumploader.util.Side;
 
 import java.io.IOException;
 import java.io.InputStreamReader;
@@ -22,10 +24,10 @@ public class ConfigFile {
 	private transient final Path destFile;
 	private transient boolean dirty = false;
 
+	public List<String> sources = SourcesRegistry.getDefaultSources();
+
 	// Download the files required to start the game. May cause problems if a download is needed!
 	public boolean downloadRequiredFiles = true;
-	// Force EnvironmentDiscoverer to use FallbackJarStorage, e.g. for running server installs
-	public boolean forceFallbackStorage = false;
 	// Don't update configuration if the side to be downloaded is not the same as the current side
 	public boolean overrideInferredSide = false;
 	// Disable the user interface - temporary fix for crashes on Linux!
@@ -48,7 +50,7 @@ public class ConfigFile {
 		public String handler = "fabric";
 		public boolean forceUpdate = false;
 		// Specifies the side to launch (e.g. for ServerStarter), defaults to "client"
-		public String side = null;
+		public Side side = null;
 		// Overrides the game version launched by Forge
 		public String gameVersion = null;
 	}
@@ -67,9 +69,8 @@ public class ConfigFile {
 			try (InputStreamReader isr = new InputStreamReader(Files.newInputStream(environmentDiscoverer.configFile))) {
 				ConfigFile loadedFile = gson.fromJson(isr, ConfigFile.class);
 				if (loadedFile != null) {
-					if (loadedFile.forceFallbackStorage) {
-						environmentDiscoverer.forceFallbackStorage();
-					}
+					// TODO: is this always right?
+					environmentDiscoverer.updateForSide(loadedFile.autoconfig.side);
 					return loadedFile;
 				}
 			}
@@ -124,5 +125,10 @@ public class ConfigFile {
 			jars.minecraft = new ArrayList<>();
 			jars.maven = new ArrayList<>();
 		}
+	}
+
+	public String jarFolderSourceThing() {
+		// TODO: reimpl
+		return "";
 	}
 }

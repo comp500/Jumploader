@@ -1,4 +1,4 @@
-package link.infra.jumploader.resolution;
+package link.infra.jumploader.util;
 
 import com.google.gson.Gson;
 import com.google.gson.JsonElement;
@@ -6,9 +6,7 @@ import com.google.gson.JsonParser;
 import link.infra.jumploader.Jumploader;
 
 import java.io.*;
-import java.net.HttpURLConnection;
-import java.net.URL;
-import java.net.URLConnection;
+import java.net.*;
 import java.nio.charset.StandardCharsets;
 
 public class RequestUtils {
@@ -54,5 +52,26 @@ public class RequestUtils {
 			}
 		}
 		return baos.toString(StandardCharsets.UTF_8.name());
+	}
+
+	public static URI resolveMavenPath(URI baseUrl, String mavenPath) {
+		String[] mavenPathSplit = mavenPath.split(":");
+		if (mavenPathSplit.length != 3) {
+			throw new RuntimeException("Invalid maven path: " + mavenPath);
+		}
+		return baseUrl.resolve(
+			String.join("/", mavenPathSplit[0].split("\\.")) + "/" + // Group ID
+				mavenPathSplit[1] + "/" + // Artifact ID
+				mavenPathSplit[2] + "/" + // Version
+				mavenPathSplit[1] + "-" + mavenPathSplit[2] + ".jar"
+		);
+	}
+
+	private static URL getSha1Url(URL downloadUrl) throws MalformedURLException {
+		return new URL(downloadUrl.getProtocol(), downloadUrl.getHost(), downloadUrl.getPort(), downloadUrl.getFile() + ".sha1");
+	}
+
+	public static String getSha1Hash(URL downloadUrl) throws IOException {
+		return getString(getSha1Url(downloadUrl));
 	}
 }

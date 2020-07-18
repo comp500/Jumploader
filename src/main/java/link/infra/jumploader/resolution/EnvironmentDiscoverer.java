@@ -1,6 +1,9 @@
 package link.infra.jumploader.resolution;
 
 import link.infra.jumploader.launch.arguments.ParsedArguments;
+import link.infra.jumploader.util.Side;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 
 import java.io.IOException;
 import java.nio.file.Files;
@@ -14,15 +17,14 @@ public class EnvironmentDiscoverer {
 	public JarStorageLocation jarStorage;
 	private final Path gameDir;
 
+	private final Logger LOGGER = LogManager.getLogger();
+
 	public static class UnsupportedLocationException extends Exception {}
 
-	public interface JarStorageLocationConstructor<T extends JarStorageLocation> {
-		T construct(Path gameDir) throws UnsupportedLocationException;
-	}
-
 	public interface JarStorageLocation {
-		Path getMavenJar(String mavenPath);
-		Path getGameJar(String gameVersion, String downloadType);
+		Path getLibraryMaven(String mavenPath);
+		Path getGameJar(String gameVersion, Side side);
+		boolean compatibleWithSide(Side side);
 	}
 
 	private static Path resolveMavenPathOnDisk(Path baseDir, String mavenPath) {
@@ -56,13 +58,18 @@ public class EnvironmentDiscoverer {
 		}
 
 		@Override
-		public Path getMavenJar(String mavenPath) {
+		public Path getLibraryMaven(String mavenPath) {
 			return resolveMavenPathOnDisk(librariesDir, mavenPath);
 		}
 
 		@Override
-		public Path getGameJar(String gameVersion, String downloadType) {
-			return gameVersionsDir.resolve(downloadType).resolve(gameVersion + ".jar");
+		public Path getGameJar(String gameVersion, Side side) {
+			return gameVersionsDir.resolve(side.name).resolve(gameVersion + ".jar");
+		}
+
+		@Override
+		public boolean compatibleWithSide(Side side) {
+			return true;
 		}
 	}
 
@@ -79,16 +86,21 @@ public class EnvironmentDiscoverer {
 		}
 
 		@Override
-		public Path getMavenJar(String mavenPath) {
+		public Path getLibraryMaven(String mavenPath) {
 			return resolveMavenPathOnDisk(librariesDir, mavenPath);
 		}
 
 		@Override
-		public Path getGameJar(String gameVersion, String downloadType) {
-			if (!downloadType.equals("client")) {
-				throw new RuntimeException("VanillaJarStorage doesn't support non-clientside, please enable forceFallbackStorage!");
+		public Path getGameJar(String gameVersion, Side side) {
+			if (side != Side.CLIENT) {
+				throw new RuntimeException("VanillaJarStorage doesn't support non-clientside, something has gone wrong!");
 			}
 			return gameVersionsDir.resolve(Paths.get(gameVersion, gameVersion + ".jar"));
+		}
+
+		@Override
+		public boolean compatibleWithSide(Side side) {
+			return side == Side.CLIENT;
 		}
 	}
 
@@ -110,17 +122,26 @@ public class EnvironmentDiscoverer {
 		}
 
 		@Override
-		public Path getMavenJar(String mavenPath) {
+		public Path getLibraryMaven(String mavenPath) {
 			return resolveMavenPathOnDisk(librariesDir, mavenPath);
 		}
 
 		@Override
-		public Path getGameJar(String gameVersion, String downloadType) {
-			if (!downloadType.equals("client")) {
-				throw new RuntimeException("TwitchJarStorage doesn't support non-clientside, please enable forceFallbackStorage!");
+		public Path getGameJar(String gameVersion, Side side) {
+			if (side != Side.CLIENT) {
+				throw new RuntimeException("TwitchJarStorage doesn't support non-clientside, something has gone wrong!");
 			}
 			return gameVersionsDir.resolve(Paths.get(gameVersion, gameVersion + ".jar"));
 		}
+
+		@Override
+		public boolean compatibleWithSide(Side side) {
+			return side == Side.CLIENT;
+		}
+	}
+
+	public interface JarStorageLocationConstructor<T extends JarStorageLocation> {
+		T construct(Path gameDir) throws UnsupportedLocationException;
 	}
 
 	private static final List<JarStorageLocationConstructor<?>> locations = Arrays.asList(
@@ -149,9 +170,23 @@ public class EnvironmentDiscoverer {
 		if (jarStorage == null) {
 			throw new RuntimeException("Failed to find a matching environment!");
 		}
+
+		LOGGER.info("Detected environment " + jarStorage.getClass().getCanonicalName() + " [Minecraft version " + args.mcVersion + "]");
 	}
 
-	public void forceFallbackStorage() {
-		jarStorage = new FallbackJarStorage(gameDir);
+	public void updateForSide(Side side) {
+		if (!jarStorage.compatibleWithSide(side)) {
+			JarStorageLocation oldJarStorage = jarStorage;
+			for (JarStorageLocationConstructor<?> constructor : locations) {
+				try {
+					jarStorage = constructor.construct(gameDir);
+					break;
+				} catch (UnsupportedLocationException ignored) {}
+			}
+			if (jarStorage == null) {
+				throw new RuntimeException("Failed to find a matching environment after updating for side!");
+			}
+			LOGGER.info("Environment " + oldJarStorage.getClass().getCanonicalName() + " was incompatible with side " + side + ", switched to " + jarStorage.getClass().getCanonicalName());
+		}
 	}
 }

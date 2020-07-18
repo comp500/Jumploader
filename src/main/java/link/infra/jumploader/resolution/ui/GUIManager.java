@@ -1,8 +1,8 @@
 package link.infra.jumploader.resolution.ui;
 
 
-import link.infra.jumploader.DownloadWorkerManager;
 import link.infra.jumploader.launch.arguments.ParsedArguments;
+import link.infra.jumploader.resolution.download.DownloadWorkerManager;
 
 import java.util.Arrays;
 

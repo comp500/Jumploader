@@ -1,4 +1,4 @@
-package link.infra.jumploader;
+package link.infra.jumploader.resolution.download;
 
 import java.util.ArrayList;
 import java.util.List;

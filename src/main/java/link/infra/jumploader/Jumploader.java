@@ -10,9 +10,10 @@ import link.infra.jumploader.launch.PreLaunchDispatcher;
 import link.infra.jumploader.launch.ReflectionUtil;
 import link.infra.jumploader.launch.arguments.ParsedArguments;
 import link.infra.jumploader.launch.classpath.ClasspathReplacer;
-import link.infra.jumploader.resolution.meta.AutoconfHandler;
 import link.infra.jumploader.resolution.EnvironmentDiscoverer;
-import link.infra.jumploader.resolution.resources.ResolvableJar;
+import link.infra.jumploader.resolution.ResolvableJar;
+import link.infra.jumploader.resolution.download.DownloadWorkerManager;
+import link.infra.jumploader.resolution.meta.AutoconfHandler;
 import link.infra.jumploader.resolution.ui.GUIManager;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -78,7 +79,6 @@ public class Jumploader implements ITransformationService {
 
 		// Detect the environment
 		EnvironmentDiscoverer environmentDiscoverer = new EnvironmentDiscoverer(argsParsed);
-		LOGGER.info("Detected environment " + environmentDiscoverer.jarStorage.getClass().getCanonicalName() + " [Minecraft version " + argsParsed.mcVersion + "]");
 
 		ConfigFile config;
 		try {
