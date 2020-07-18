@@ -12,16 +12,16 @@ public interface ResolutionContext {
 
 	default Side getLoadingSide() {
 		ConfigFile configFile = getConfigFile();
-		if (configFile.autoconfig.side != null) {
-			return configFile.autoconfig.side;
+		if (configFile.gameSide != null) {
+			return configFile.gameSide;
 		}
 		return getArguments().inferredSide;
 	}
 
 	default String getLoadingVersion() {
 		ConfigFile configFile = getConfigFile();
-		if (configFile.autoconfig.gameVersion != null) {
-			return configFile.autoconfig.gameVersion;
+		if (configFile.gameVersion != null && !configFile.gameVersion.equals("latest")) {
+			return configFile.gameVersion;
 		}
 		return getArguments().mcVersion;
 	}

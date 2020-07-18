@@ -17,7 +17,7 @@ public class FolderJarSource implements ResolvableJarSource<FolderJarSource.Fold
 
 	@Override
 	public List<ResolvableJar> getJars(MetadataCacheHelper.MetadataCacheView cache, ResolutionContext ctx) throws IOException {
-		return Files.walk(ctx.getArguments().gameDir.resolve(ctx.getConfigFile().jarFolderSourceThing()))
+		return Files.walk(ctx.getArguments().gameDir.resolve(ctx.getConfigFile().loadJarsFromFolder))
 			.filter(path -> path.endsWith(".jar"))
 			.map(path -> new ResolvableJar(path, "File " + path)).collect(Collectors.toList());
 	}

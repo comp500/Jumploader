@@ -11,16 +11,10 @@ import link.infra.jumploader.launch.ReflectionUtil;
 import link.infra.jumploader.launch.arguments.ParsedArguments;
 import link.infra.jumploader.launch.classpath.ClasspathReplacer;
 import link.infra.jumploader.resolution.EnvironmentDiscoverer;
-import link.infra.jumploader.resolution.ResolvableJar;
-import link.infra.jumploader.resolution.download.DownloadWorkerManager;
-import link.infra.jumploader.resolution.meta.AutoconfHandler;
-import link.infra.jumploader.resolution.ui.GUIManager;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
 import javax.annotation.Nonnull;
-import java.awt.*;
-import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.PrintStream;
 import java.io.PrintWriter;
@@ -88,23 +82,11 @@ public class Jumploader implements ITransformationService {
 			throw new RuntimeException("Failed to read config file", e);
 		}
 
-		// TODO: refactor autoconfig system
-		// Call the configured autoconfig handler
-		if (config.autoconfig != null && config.autoconfig.enable) {
-			LOGGER.info("Configuration successfully loaded! Updating configuration from handler: " + config.autoconfig.handler);
-			AutoconfHandler autoconfHandler = AutoconfHandler.HANDLERS.get(config.autoconfig.handler);
-			autoconfHandler.updateConfig(config, argsParsed, environmentDiscoverer);
-			try {
-				config.saveIfDirty();
-			} catch (IOException e) {
-				throw new RuntimeException("Failed to save the configuration", e);
-			}
-			LOGGER.info("Configuration up to date! Resolving JARs to jumpload...");
-		} else {
-			LOGGER.info("Configuration successfully loaded! Resolving JARs to jumpload...");
-		}
+		LOGGER.info("Configuration successfully loaded with sources: [" + String.join(", ", config.sources) + "] Resolving JARs to jumpload...");
 
-		List<URL> loadUrls = resolveJars(config, argsParsed);
+		// TODO: readd resolveJars stuff
+		List<URL> loadUrls = new ArrayList<>();
+		//List<URL> loadUrls = resolveJars(config, argsParsed);
 
 		// Replace the classpath URLs
 		try {
@@ -124,34 +106,37 @@ public class Jumploader implements ITransformationService {
 
 		int preLaunchRunningThreads = Thread.currentThread().getThreadGroup().activeCount();
 
-		LOGGER.info("Jumping to new loader, main class: " + config.launch.mainClass);
+		// TODO: read from jar sources
+		String mainClassName = config.overrideMainClass;
+
+		LOGGER.info("Jumping to new loader, main class: " + mainClassName);
 		// Attempt to launch mainClass with the classloader
 		Class<?> mainClass;
 		try {
-			mainClass = newLoader.loadClass(config.launch.mainClass);
+			mainClass = newLoader.loadClass(mainClassName);
 		} catch (ClassNotFoundException e) {
-			if (config.launch.mainClass.contains("Knot")) {
+			if (mainClassName.contains("Knot")) {
 				throw new RuntimeException("Failed to load " +
-					config.launch.mainClass.substring(config.launch.mainClass.lastIndexOf(".") + 1) +
-					" (Fabric) from " + config.launch.mainClass, e);
+					mainClassName.substring(mainClassName.lastIndexOf(".") + 1) +
+					" (Fabric) from " + mainClassName, e);
 			}
 			throw new RuntimeException("Failed to load " +
-				config.launch.mainClass.substring(config.launch.mainClass.lastIndexOf(".") + 1) +
-				" from " + config.launch.mainClass, e);
+				mainClassName.substring(mainClassName.lastIndexOf(".") + 1) +
+				" from " + mainClassName, e);
 		}
 		if (mainClass != null) {
 			try {
 				Method main = mainClass.getMethod("main", String[].class);
 				main.invoke(null, new Object[] {argsParsed.getArgsArray()});
 			} catch (NoSuchMethodException | IllegalAccessException e) {
-				if (config.launch.mainClass.contains("Knot")) {
+				if (mainClassName.contains("Knot")) {
 					throw new RuntimeException("Failed to invoke " +
-						config.launch.mainClass.substring(config.launch.mainClass.lastIndexOf(".") + 1) +
-						" (Fabric) from " + config.launch.mainClass, e);
+						mainClassName.substring(mainClassName.lastIndexOf(".") + 1) +
+						" (Fabric) from " + mainClassName, e);
 				}
 				throw new RuntimeException("Failed to invoke " +
-					config.launch.mainClass.substring(config.launch.mainClass.lastIndexOf(".") + 1) +
-					" from " + config.launch.mainClass, e);
+					mainClassName.substring(mainClassName.lastIndexOf(".") + 1) +
+					" from " + mainClassName, e);
 			} catch (InvocationTargetException e) {
 				throw new RuntimeException(e.getTargetException());
 			}
@@ -186,117 +171,117 @@ public class Jumploader implements ITransformationService {
 		}
 	}
 
-	// TODO: move to separate classes
-	private List<URL> resolveJars(ConfigFile config, ParsedArguments argsParsed) {
-		List<ResolvableJar> configuredJars = config.getConfiguredJars();
-		List<ResolvableJar> downloadRequiredJars = new ArrayList<>();
-		List<URL> loadUrls = new ArrayList<>();
-
-		// Resolve all the JARs locally
-		for (ResolvableJar jar : configuredJars) {
-			try {
-				URL resolvedUrl = jar.resolveLocal();
-				loadUrls.add(resolvedUrl);
-				LOGGER.info("Found JAR: " + resolvedUrl);
-			} catch (FileNotFoundException e) {
-				downloadRequiredJars.add(jar);
-			}
-		}
-
-		if (!downloadRequiredJars.isEmpty()) {
-			if (config.downloadRequiredFiles) {
-				DownloadWorkerManager<URL> workerManager = new DownloadWorkerManager<>();
-				for (ResolvableJar jar : downloadRequiredJars) {
-					LOGGER.info("Queueing download: " + jar.toHumanString());
-					workerManager.queueWorker(status -> jar.resolveRemote(status, argsParsed));
-				}
-
-				boolean lwjglAvailable = false;
-				try {
-					Class.forName("org.lwjgl.system.MemoryStack");
-					lwjglAvailable = true;
-				} catch (ClassNotFoundException ignored) {}
-
-				if (!lwjglAvailable || GraphicsEnvironment.isHeadless() || argsParsed.nogui || config.disableUI) {
-					while (!workerManager.isDone()) {
-						LOGGER.info("Progress: " + (workerManager.getWorkerProgress() * 100) + "%");
-						URL resolvedURL;
-						try {
-							resolvedURL = workerManager.pollResult(500);
-						} catch (Exception e) {
-							// TODO: implement a better way of showing download exceptions?
-							try {
-								workerManager.shutdown();
-							} catch (InterruptedException ex) {
-								throw new RuntimeException(ex);
-							}
-							throw new RuntimeException(e);
-						}
-						if (resolvedURL != null) {
-							LOGGER.info("Downloaded successfully: " + resolvedURL);
-							loadUrls.add(resolvedURL);
-						}
-					}
-
-					try {
-						workerManager.shutdown();
-					} catch (InterruptedException ex) {
-						throw new RuntimeException(ex);
-					}
-				} else {
-					GUIManager guiManager = new GUIManager(workerManager, argsParsed);
-					guiManager.init();
-
-					boolean closeTriggered = false;
-					while (!workerManager.isDone()) {
-						if (guiManager.wasCloseTriggered()) {
-							LOGGER.warn("Download window closed! Shutting down...");
-							try {
-								workerManager.shutdown();
-							} catch (InterruptedException e) {
-								throw new RuntimeException(e);
-							}
-							closeTriggered = true;
-							break;
-						}
-						guiManager.render();
-						URL resolvedURL;
-						try {
-							resolvedURL = workerManager.pollResult();
-						} catch (Exception e) {
-							// TODO: implement a better way of showing download exceptions?
-							try {
-								workerManager.shutdown();
-							} catch (InterruptedException ex) {
-								throw new RuntimeException(ex);
-							}
-							guiManager.cleanup();
-							throw new RuntimeException(e);
-						}
-						if (resolvedURL != null) {
-							LOGGER.info("Downloaded successfully: " + resolvedURL);
-							loadUrls.add(resolvedURL);
-						}
-					}
-
-					try {
-						workerManager.shutdown();
-					} catch (InterruptedException ex) {
-						throw new RuntimeException(ex);
-					}
-
-					guiManager.cleanup();
-					if (closeTriggered) {
-						System.exit(1);
-					}
-				}
-			} else {
-				LOGGER.warn("downloadRequiredFiles is disabled, skipping downloading of JARs!");
-			}
-		}
-
-		return loadUrls;
-	}
+//	// TODO: move to separate classes
+//	private List<URL> resolveJars(ConfigFile config, ParsedArguments argsParsed) {
+//		List<ResolvableJar> configuredJars = config.getConfiguredJars();
+//		List<ResolvableJar> downloadRequiredJars = new ArrayList<>();
+//		List<URL> loadUrls = new ArrayList<>();
+//
+//		// Resolve all the JARs locally
+//		for (ResolvableJar jar : configuredJars) {
+//			try {
+//				URL resolvedUrl = jar.resolveLocal();
+//				loadUrls.add(resolvedUrl);
+//				LOGGER.info("Found JAR: " + resolvedUrl);
+//			} catch (FileNotFoundException e) {
+//				downloadRequiredJars.add(jar);
+//			}
+//		}
+//
+//		if (!downloadRequiredJars.isEmpty()) {
+//			if (config.downloadRequiredFiles) {
+//				DownloadWorkerManager<URL> workerManager = new DownloadWorkerManager<>();
+//				for (ResolvableJar jar : downloadRequiredJars) {
+//					LOGGER.info("Queueing download: " + jar.toHumanString());
+//					workerManager.queueWorker(status -> jar.resolveRemote(status, argsParsed));
+//				}
+//
+//				boolean lwjglAvailable = false;
+//				try {
+//					Class.forName("org.lwjgl.system.MemoryStack");
+//					lwjglAvailable = true;
+//				} catch (ClassNotFoundException ignored) {}
+//
+//				if (!lwjglAvailable || GraphicsEnvironment.isHeadless() || argsParsed.nogui || config.disableUI) {
+//					while (!workerManager.isDone()) {
+//						LOGGER.info("Progress: " + (workerManager.getWorkerProgress() * 100) + "%");
+//						URL resolvedURL;
+//						try {
+//							resolvedURL = workerManager.pollResult(500);
+//						} catch (Exception e) {
+//							// TODO: implement a better way of showing download exceptions?
+//							try {
+//								workerManager.shutdown();
+//							} catch (InterruptedException ex) {
+//								throw new RuntimeException(ex);
+//							}
+//							throw new RuntimeException(e);
+//						}
+//						if (resolvedURL != null) {
+//							LOGGER.info("Downloaded successfully: " + resolvedURL);
+//							loadUrls.add(resolvedURL);
+//						}
+//					}
+//
+//					try {
+//						workerManager.shutdown();
+//					} catch (InterruptedException ex) {
+//						throw new RuntimeException(ex);
+//					}
+//				} else {
+//					GUIManager guiManager = new GUIManager(workerManager, argsParsed);
+//					guiManager.init();
+//
+//					boolean closeTriggered = false;
+//					while (!workerManager.isDone()) {
+//						if (guiManager.wasCloseTriggered()) {
+//							LOGGER.warn("Download window closed! Shutting down...");
+//							try {
+//								workerManager.shutdown();
+//							} catch (InterruptedException e) {
+//								throw new RuntimeException(e);
+//							}
+//							closeTriggered = true;
+//							break;
+//						}
+//						guiManager.render();
+//						URL resolvedURL;
+//						try {
+//							resolvedURL = workerManager.pollResult();
+//						} catch (Exception e) {
+//							// TODO: implement a better way of showing download exceptions?
+//							try {
+//								workerManager.shutdown();
+//							} catch (InterruptedException ex) {
+//								throw new RuntimeException(ex);
+//							}
+//							guiManager.cleanup();
+//							throw new RuntimeException(e);
+//						}
+//						if (resolvedURL != null) {
+//							LOGGER.info("Downloaded successfully: " + resolvedURL);
+//							loadUrls.add(resolvedURL);
+//						}
+//					}
+//
+//					try {
+//						workerManager.shutdown();
+//					} catch (InterruptedException ex) {
+//						throw new RuntimeException(ex);
+//					}
+//
+//					guiManager.cleanup();
+//					if (closeTriggered) {
+//						System.exit(1);
+//					}
+//				}
+//			} else {
+//				LOGGER.warn("downloadRequiredFiles is disabled, skipping downloading of JARs!");
+//			}
+//		}
+//
+//		return loadUrls;
+//	}
 
 	@SuppressWarnings("rawtypes")
 	@Nonnull

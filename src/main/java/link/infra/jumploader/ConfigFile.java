@@ -4,54 +4,58 @@ import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import com.google.gson.InstanceCreator;
 import com.google.gson.JsonParseException;
+import com.google.gson.annotations.Expose;
 import link.infra.jumploader.resolution.EnvironmentDiscoverer;
-import link.infra.jumploader.resolution.ResolvableJar;
-import link.infra.jumploader.resolution.resources.MavenJar;
-import link.infra.jumploader.resolution.resources.MinecraftJar;
 import link.infra.jumploader.resolution.sources.SourcesRegistry;
 import link.infra.jumploader.util.Side;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.OutputStreamWriter;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.ArrayList;
 import java.util.List;
 
-@SuppressWarnings("CanBeFinal")
 public class ConfigFile {
 	private transient final Path destFile;
 	private transient boolean dirty = false;
+	private transient static final Logger LOGGER = LogManager.getLogger();
 
+	@Expose
+	public int configVersion = 2;
+
+	// A list of sources to load JARs from. The order matters - sources specified later can override
+	// settings specified by earlier sources.
+	@Expose
 	public List<String> sources = SourcesRegistry.getDefaultSources();
-
-	// Download the files required to start the game. May cause problems if a download is needed!
-	public boolean downloadRequiredFiles = true;
-	// Don't update configuration if the side to be downloaded is not the same as the current side
-	public boolean overrideInferredSide = false;
+	// Overrides the game version launched by Forge
+	@Expose
+	public String gameVersion = "latest";
+	// Specifies the side to launch, defaults to the side Forge is launching
+	@Expose
+	public Side gameSide = null;
 	// Disable the user interface - temporary fix for crashes on Linux!
+	// ... not sure if these crashes still happen, please report them if they do!
+	@Expose
 	public boolean disableUI = false;
-	public LaunchOptions launch = new LaunchOptions();
-	public JarOptions jars = new JarOptions();
-	public AutoconfOptions autoconfig = new AutoconfOptions();
+	// Load JARs from a folder, requires adding "folder" to the sources list
+	@Expose
+	public String loadJarsFromFolder = null;
+	// Call this main class instead of the class determined by the source list
+	@Expose
+	public String overrideMainClass = null;
 
-	public static class LaunchOptions {
-		public String mainClass = null;
-	}
+	// Legacy config file detection
+	@Expose(serialize = false)
+	public AutoconfOptions autoconfig = null;
 
-	public static class JarOptions {
-		public List<MinecraftJar> minecraft = new ArrayList<>();
-		public List<MavenJar> maven = new ArrayList<>();
-	}
-
-	public static class AutoconfOptions {
+	private static class AutoconfOptions {
 		public boolean enable = true;
 		public String handler = "fabric";
 		public boolean forceUpdate = false;
-		// Specifies the side to launch (e.g. for ServerStarter), defaults to "client"
-		public Side side = null;
-		// Overrides the game version launched by Forge
+		public String side = null;
 		public String gameVersion = null;
 	}
 
@@ -63,14 +67,27 @@ public class ConfigFile {
 		if (Files.exists(environmentDiscoverer.configFile)) {
 			Gson gson = new GsonBuilder()
 				.registerTypeAdapter(ConfigFile.class, (InstanceCreator<ConfigFile>)(type) -> new ConfigFile(environmentDiscoverer.configFile))
-				.registerTypeAdapter(MinecraftJar.class, (InstanceCreator<MinecraftJar>)(type) -> new MinecraftJar(environmentDiscoverer.jarStorage))
-				.registerTypeAdapter(MavenJar.class, (InstanceCreator<MavenJar>)(type) -> new MavenJar(environmentDiscoverer.jarStorage))
+				.excludeFieldsWithoutExposeAnnotation()
 				.create();
 			try (InputStreamReader isr = new InputStreamReader(Files.newInputStream(environmentDiscoverer.configFile))) {
 				ConfigFile loadedFile = gson.fromJson(isr, ConfigFile.class);
 				if (loadedFile != null) {
-					// TODO: is this always right?
-					environmentDiscoverer.updateForSide(loadedFile.autoconfig.side);
+					// Check if the loaded configuration is version 1.0
+					if (loadedFile.autoconfig != null || loadedFile.configVersion < 2) {
+						// Warn the user, if they've changed any settings, that these settings will be reset
+						if (loadedFile.autoconfig != null) {
+							if (!loadedFile.autoconfig.enable || !loadedFile.autoconfig.handler.equals("fabric")
+								|| loadedFile.autoconfig.forceUpdate || loadedFile.autoconfig.side != null || loadedFile.autoconfig.gameVersion != null) {
+								// TODO: show window
+								System.out.println("I should show a window now");
+							}
+						}
+						LOGGER.info("Jumploader 1.0.x config file has been detected, your settings have been reset!");
+						ConfigFile newFile = new ConfigFile(environmentDiscoverer.configFile);
+						newFile.dirty = true;
+						return newFile;
+					}
+					environmentDiscoverer.updateForSide(loadedFile.gameSide);
 					return loadedFile;
 				}
 			}
@@ -87,48 +104,13 @@ public class ConfigFile {
 	}
 
 	public void save() throws IOException {
-		Gson gson = new GsonBuilder().setPrettyPrinting().create();
+		Gson gson = new GsonBuilder().setPrettyPrinting().serializeNulls()
+			// Normal JsonAdapter annot doesn't serialise nulls properly
+			.registerTypeAdapter(Side.class, new Side.Adapter())
+			.excludeFieldsWithoutExposeAnnotation().create();
 		try (OutputStreamWriter osw = new OutputStreamWriter(Files.newOutputStream(destFile))) {
 			gson.toJson(this, osw);
 		}
 		dirty = false;
-	}
-
-	public List<ResolvableJar> getConfiguredJars() {
-		List<ResolvableJar> jarList = new ArrayList<>();
-		if (jars != null) {
-			if (jars.minecraft != null) {
-				jarList.addAll(jars.minecraft);
-			}
-			if (jars.maven != null) {
-				jarList.addAll(jars.maven);
-			}
-		}
-		return jarList;
-	}
-
-	public void resetConfiguredJars() {
-		dirty = true;
-		if (jars != null) {
-			if (jars.minecraft != null) {
-				jars.minecraft.clear();
-			} else {
-				jars.minecraft = new ArrayList<>();
-			}
-			if (jars.maven != null) {
-				jars.maven.clear();
-			} else {
-				jars.maven = new ArrayList<>();
-			}
-		} else {
-			jars = new JarOptions();
-			jars.minecraft = new ArrayList<>();
-			jars.maven = new ArrayList<>();
-		}
-	}
-
-	public String jarFolderSourceThing() {
-		// TODO: reimpl
-		return "";
 	}
 }

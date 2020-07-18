@@ -3,6 +3,7 @@ package link.infra.jumploader.util;
 import com.google.gson.TypeAdapter;
 import com.google.gson.annotations.JsonAdapter;
 import com.google.gson.stream.JsonReader;
+import com.google.gson.stream.JsonToken;
 import com.google.gson.stream.JsonWriter;
 
 import java.io.IOException;
@@ -33,12 +34,24 @@ public enum Side {
 	public static class Adapter extends TypeAdapter<Side> {
 		@Override
 		public void write(JsonWriter out, Side value) throws IOException {
-			out.value(value.name);
+			if (value == null) {
+				out.value("current");
+			} else {
+				out.value(value.name);
+			}
 		}
 
 		@Override
 		public Side read(JsonReader in) throws IOException {
-			return Side.of(in.nextString());
+			if (in.peek() == JsonToken.NULL) {
+				in.nextNull();
+				return null;
+			}
+			String name = in.nextString();
+			if (name.equals("current")) {
+				return null;
+			}
+			return Side.of(name);
 		}
 	}
 }
