@@ -30,11 +30,11 @@ public class MetadataCacheHelper {
 		boolean isValid(T key);
 	}
 
-	// TODO: forceUpdate?
-
 	public interface InvalidationUpdateSourcer<T, E extends Throwable> {
 		T get() throws IOException, E;
 	}
+
+	private static final Gson PRETTY_GSON = new GsonBuilder().setPrettyPrinting().create();
 
 	public interface MetadataCacheView {
 		boolean isValid(String name);
@@ -54,11 +54,7 @@ public class MetadataCacheHelper {
 		default <E extends Throwable> String getAsString(String name, InvalidationUpdateSourcer<String, E> updater) throws IOException, E {
 			return new String(getAsBytes(name, () -> updater.get().getBytes(StandardCharsets.UTF_8)), StandardCharsets.UTF_8);
 		}
-	}
 
-	private static final Gson PRETTY_GSON = new GsonBuilder().setPrettyPrinting().create();
-
-	public interface GsonMetadataCacheView extends MetadataCacheView {
 		default <T, E extends Throwable> T getObject(String name, Class<T> type, InvalidationUpdateSourcer<T, E> updater) throws IOException, E {
 			return PRETTY_GSON.fromJson(getAsString(name, () -> PRETTY_GSON.toJson(updater.get(), type)), type);
 		}

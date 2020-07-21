@@ -8,30 +8,30 @@ import java.nio.file.Path;
 
 public class ResolvableJar {
 	public final URL url;
-	public final Path file;
+	public final Path path;
 	public final HashVerifierProvider hashVerifier;
 	public final PreDownloadCheck downloadCheck;
 	public final String friendlyName;
 
-	public ResolvableJar(Path file, String friendlyName) {
+	public ResolvableJar(Path path, String friendlyName) {
 		this.url = null;
-		this.file = file;
+		this.path = path;
 		this.friendlyName = friendlyName;
 		this.hashVerifier = null;
 		this.downloadCheck = null;
 	}
 
-	public ResolvableJar(URL url, Path file, HashVerifierProvider hashVerifier, String friendlyName) {
+	public ResolvableJar(URL url, Path path, HashVerifierProvider hashVerifier, String friendlyName) {
 		this.url = url;
-		this.file = file;
+		this.path = path;
 		this.hashVerifier = hashVerifier;
 		this.friendlyName = friendlyName;
 		this.downloadCheck = null;
 	}
 
-	public ResolvableJar(URL url, Path file, HashVerifierProvider hashVerifier, PreDownloadCheck downloadCheck, String friendlyName) {
+	public ResolvableJar(URL url, Path path, HashVerifierProvider hashVerifier, PreDownloadCheck downloadCheck, String friendlyName) {
 		this.url = url;
-		this.file = file;
+		this.path = path;
 		this.hashVerifier = hashVerifier;
 		this.downloadCheck = downloadCheck;
 		this.friendlyName = friendlyName;

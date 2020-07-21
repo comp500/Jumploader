@@ -32,7 +32,7 @@ public class ConfigFile {
 	public List<String> sources = SourcesRegistry.getDefaultSources();
 	// Overrides the game version launched by Forge
 	@Expose
-	public String gameVersion = "latest";
+	public String gameVersion = "current";
 	// Specifies the side to launch, defaults to the side Forge is launching
 	@Expose
 	public Side gameSide = null;

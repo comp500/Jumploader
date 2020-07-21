@@ -5,7 +5,7 @@ import java.io.FilterInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 
-class BytesReportingInputStream extends FilterInputStream {
+public class BytesReportingInputStream extends FilterInputStream {
 	private final DownloadWorkerManager.TaskStatus status;
 	private int bytesDownloaded;
 

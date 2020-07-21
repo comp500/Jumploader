@@ -3,6 +3,7 @@ package link.infra.jumploader.resolution.sources;
 import link.infra.jumploader.ConfigFile;
 import link.infra.jumploader.launch.arguments.ParsedArguments;
 import link.infra.jumploader.resolution.EnvironmentDiscoverer;
+import link.infra.jumploader.resolution.ui.util.UIDetection;
 import link.infra.jumploader.util.Side;
 
 public interface ResolutionContext {
@@ -20,9 +21,13 @@ public interface ResolutionContext {
 
 	default String getLoadingVersion() {
 		ConfigFile configFile = getConfigFile();
-		if (configFile.gameVersion != null && !configFile.gameVersion.equals("latest")) {
+		if (configFile.gameVersion != null && !configFile.gameVersion.equals("current")) {
 			return configFile.gameVersion;
 		}
 		return getArguments().mcVersion;
+	}
+
+	default boolean useUI() {
+		return UIDetection.uiAvailable && !getConfigFile().disableUI && !getArguments().nogui;
 	}
 }

@@ -11,6 +11,10 @@ import link.infra.jumploader.launch.ReflectionUtil;
 import link.infra.jumploader.launch.arguments.ParsedArguments;
 import link.infra.jumploader.launch.classpath.ClasspathReplacer;
 import link.infra.jumploader.resolution.EnvironmentDiscoverer;
+import link.infra.jumploader.resolution.ResolutionProcessor;
+import link.infra.jumploader.resolution.sources.MetadataResolutionResult;
+import link.infra.jumploader.resolution.sources.ResolutionContext;
+import link.infra.jumploader.resolution.sources.ResolutionContextImpl;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
@@ -23,7 +27,6 @@ import java.lang.reflect.Method;
 import java.net.URISyntaxException;
 import java.net.URL;
 import java.net.URLClassLoader;
-import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Set;
@@ -79,19 +82,35 @@ public class Jumploader implements ITransformationService {
 			config = ConfigFile.read(environmentDiscoverer);
 			config.saveIfDirty();
 		} catch (JsonParseException | IOException e) {
+			// TODO: better error handling
 			throw new RuntimeException("Failed to read config file", e);
 		}
 
 		LOGGER.info("Configuration successfully loaded with sources: [" + String.join(", ", config.sources) + "] Resolving JARs to jumpload...");
 
-		// TODO: readd resolveJars stuff
-		List<URL> loadUrls = new ArrayList<>();
-		//List<URL> loadUrls = resolveJars(config, argsParsed);
+		ResolutionContext resCtx = new ResolutionContextImpl(config, environmentDiscoverer, argsParsed);
+		// Resolve metadata for jars to download
+		List<MetadataResolutionResult> metadataResolutionResults;
+		try {
+			metadataResolutionResults = ResolutionProcessor.processMetadata(resCtx);
+		} catch (IOException e) {
+			// TODO: better error handling
+			throw new RuntimeException(e);
+		}
+		// Download and resolve URLs for jars
+		List<URL> loadUrls;
+		try {
+			loadUrls = ResolutionProcessor.resolveJars(metadataResolutionResults, resCtx);
+		} catch (IOException e) {
+			// TODO: better error handling
+			throw new RuntimeException(e);
+		}
 
 		// Replace the classpath URLs
 		try {
 			ClasspathReplacer.replaceClasspath(loadUrls);
 		} catch (URISyntaxException e) {
+			// TODO: better error handling
 			throw new RuntimeException("Failed to parse URL in replacement classpath", e);
 		}
 
@@ -106,8 +125,24 @@ public class Jumploader implements ITransformationService {
 
 		int preLaunchRunningThreads = Thread.currentThread().getThreadGroup().activeCount();
 
-		// TODO: read from jar sources
-		String mainClassName = config.overrideMainClass;
+		String mainClassName = null;
+		boolean isFabric = false;
+		if (config.overrideMainClass != null) {
+			mainClassName = config.overrideMainClass;
+		} else {
+			// Read main class from jar sources - later sources override earlier sources
+			for (int i = 0; i < metadataResolutionResults.size(); i++) {
+				String resMainClass = metadataResolutionResults.get(i).mainClass;
+				if (resMainClass != null) {
+					mainClassName = resMainClass;
+					isFabric = config.sources.get(i).equals("fabric");
+				}
+			}
+		}
+		if (mainClassName == null) {
+			// TODO: better error handling
+			throw new RuntimeException("Sources did not provide a main class!");
+		}
 
 		LOGGER.info("Jumping to new loader, main class: " + mainClassName);
 		// Attempt to launch mainClass with the classloader
@@ -115,7 +150,8 @@ public class Jumploader implements ITransformationService {
 		try {
 			mainClass = newLoader.loadClass(mainClassName);
 		} catch (ClassNotFoundException e) {
-			if (mainClassName.contains("Knot")) {
+			// TODO: better error handling
+			if (isFabric) {
 				throw new RuntimeException("Failed to load " +
 					mainClassName.substring(mainClassName.lastIndexOf(".") + 1) +
 					" (Fabric) from " + mainClassName, e);
@@ -129,7 +165,7 @@ public class Jumploader implements ITransformationService {
 				Method main = mainClass.getMethod("main", String[].class);
 				main.invoke(null, new Object[] {argsParsed.getArgsArray()});
 			} catch (NoSuchMethodException | IllegalAccessException e) {
-				if (mainClassName.contains("Knot")) {
+				if (isFabric) {
 					throw new RuntimeException("Failed to invoke " +
 						mainClassName.substring(mainClassName.lastIndexOf(".") + 1) +
 						" (Fabric) from " + mainClassName, e);
@@ -150,17 +186,7 @@ public class Jumploader implements ITransformationService {
 			Thread.currentThread().setUncaughtExceptionHandler((t, e) -> {
 				// Do nothing!
 			});
-			throw new ThreadCloseException("Jumploader is closing the main thread, not an error!"){
-				@Override
-				public void printStackTrace(PrintStream s) {
-					// Do nothing!
-				}
-
-				@Override
-				public void printStackTrace(PrintWriter s) {
-					// Do nothing!
-				}
-			};
+			throw new ThreadCloseException("Jumploader is closing the main thread, not an error!");
 		}
 		System.exit(1);
 	}
@@ -169,119 +195,17 @@ public class Jumploader implements ITransformationService {
 		public ThreadCloseException(String reason) {
 			super(reason);
 		}
-	}
 
-//	// TODO: move to separate classes
-//	private List<URL> resolveJars(ConfigFile config, ParsedArguments argsParsed) {
-//		List<ResolvableJar> configuredJars = config.getConfiguredJars();
-//		List<ResolvableJar> downloadRequiredJars = new ArrayList<>();
-//		List<URL> loadUrls = new ArrayList<>();
-//
-//		// Resolve all the JARs locally
-//		for (ResolvableJar jar : configuredJars) {
-//			try {
-//				URL resolvedUrl = jar.resolveLocal();
-//				loadUrls.add(resolvedUrl);
-//				LOGGER.info("Found JAR: " + resolvedUrl);
-//			} catch (FileNotFoundException e) {
-//				downloadRequiredJars.add(jar);
-//			}
-//		}
-//
-//		if (!downloadRequiredJars.isEmpty()) {
-//			if (config.downloadRequiredFiles) {
-//				DownloadWorkerManager<URL> workerManager = new DownloadWorkerManager<>();
-//				for (ResolvableJar jar : downloadRequiredJars) {
-//					LOGGER.info("Queueing download: " + jar.toHumanString());
-//					workerManager.queueWorker(status -> jar.resolveRemote(status, argsParsed));
-//				}
-//
-//				boolean lwjglAvailable = false;
-//				try {
-//					Class.forName("org.lwjgl.system.MemoryStack");
-//					lwjglAvailable = true;
-//				} catch (ClassNotFoundException ignored) {}
-//
-//				if (!lwjglAvailable || GraphicsEnvironment.isHeadless() || argsParsed.nogui || config.disableUI) {
-//					while (!workerManager.isDone()) {
-//						LOGGER.info("Progress: " + (workerManager.getWorkerProgress() * 100) + "%");
-//						URL resolvedURL;
-//						try {
-//							resolvedURL = workerManager.pollResult(500);
-//						} catch (Exception e) {
-//							// TODO: implement a better way of showing download exceptions?
-//							try {
-//								workerManager.shutdown();
-//							} catch (InterruptedException ex) {
-//								throw new RuntimeException(ex);
-//							}
-//							throw new RuntimeException(e);
-//						}
-//						if (resolvedURL != null) {
-//							LOGGER.info("Downloaded successfully: " + resolvedURL);
-//							loadUrls.add(resolvedURL);
-//						}
-//					}
-//
-//					try {
-//						workerManager.shutdown();
-//					} catch (InterruptedException ex) {
-//						throw new RuntimeException(ex);
-//					}
-//				} else {
-//					GUIManager guiManager = new GUIManager(workerManager, argsParsed);
-//					guiManager.init();
-//
-//					boolean closeTriggered = false;
-//					while (!workerManager.isDone()) {
-//						if (guiManager.wasCloseTriggered()) {
-//							LOGGER.warn("Download window closed! Shutting down...");
-//							try {
-//								workerManager.shutdown();
-//							} catch (InterruptedException e) {
-//								throw new RuntimeException(e);
-//							}
-//							closeTriggered = true;
-//							break;
-//						}
-//						guiManager.render();
-//						URL resolvedURL;
-//						try {
-//							resolvedURL = workerManager.pollResult();
-//						} catch (Exception e) {
-//							// TODO: implement a better way of showing download exceptions?
-//							try {
-//								workerManager.shutdown();
-//							} catch (InterruptedException ex) {
-//								throw new RuntimeException(ex);
-//							}
-//							guiManager.cleanup();
-//							throw new RuntimeException(e);
-//						}
-//						if (resolvedURL != null) {
-//							LOGGER.info("Downloaded successfully: " + resolvedURL);
-//							loadUrls.add(resolvedURL);
-//						}
-//					}
-//
-//					try {
-//						workerManager.shutdown();
-//					} catch (InterruptedException ex) {
-//						throw new RuntimeException(ex);
-//					}
-//
-//					guiManager.cleanup();
-//					if (closeTriggered) {
-//						System.exit(1);
-//					}
-//				}
-//			} else {
-//				LOGGER.warn("downloadRequiredFiles is disabled, skipping downloading of JARs!");
-//			}
-//		}
-//
-//		return loadUrls;
-//	}
+		@Override
+		public void printStackTrace(PrintStream s) {
+			// Do nothing!
+		}
+
+		@Override
+		public void printStackTrace(PrintWriter s) {
+			// Do nothing!
+		}
+	}
 
 	@SuppressWarnings("rawtypes")
 	@Nonnull
@@ -289,4 +213,5 @@ public class Jumploader implements ITransformationService {
 	public List<ITransformer> transformers() {
 		return Collections.emptyList();
 	}
+
 }

@@ -16,6 +16,7 @@ public class EnvironmentDiscoverer {
 	public final Path configFile;
 	public JarStorageLocation jarStorage;
 	private final Path gameDir;
+	public final String os;
 
 	private final Logger LOGGER = LogManager.getLogger();
 
@@ -169,6 +170,15 @@ public class EnvironmentDiscoverer {
 		}
 		if (jarStorage == null) {
 			throw new RuntimeException("Failed to find a matching environment!");
+		}
+
+		String osProp = System.getProperty("os.name").toLowerCase();
+		if (osProp.contains("win")) {
+			os = "windows";
+		} else if (osProp.contains("mac")) {
+			os = "osx";
+		} else {
+			os = "linux";
 		}
 
 		LOGGER.info("Detected environment " + jarStorage.getClass().getCanonicalName() + " [Minecraft version " + args.mcVersion + "]");
