@@ -20,12 +20,10 @@ public class FabricJarSource implements ResolvableJarSource<FabricJarSource.Fabr
 	public static class FabricInvalidationKey implements MetadataCacheHelper.InvalidationKey<FabricInvalidationKey> {
 		public final String gameVersion;
 		public final Side side;
-		public final String overriddenFabricVersion;
 
-		protected FabricInvalidationKey(String gameVersion, Side side, String overriddenFabricVersion) {
+		protected FabricInvalidationKey(String gameVersion, Side side) {
 			this.gameVersion = gameVersion;
 			this.side = side;
-			this.overriddenFabricVersion = overriddenFabricVersion;
 		}
 
 		@Override
@@ -39,13 +37,12 @@ public class FabricJarSource implements ResolvableJarSource<FabricJarSource.Fabr
 			if (o == null || getClass() != o.getClass()) return false;
 			FabricInvalidationKey that = (FabricInvalidationKey) o;
 			return gameVersion.equals(that.gameVersion) &&
-				side == that.side &&
-				Objects.equals(overriddenFabricVersion, that.overriddenFabricVersion);
+				side == that.side;
 		}
 
 		@Override
 		public int hashCode() {
-			return Objects.hash(gameVersion, side, overriddenFabricVersion);
+			return Objects.hash(gameVersion, side);
 		}
 	}
 
@@ -153,7 +150,6 @@ public class FabricJarSource implements ResolvableJarSource<FabricJarSource.Fabr
 
 	@Override
 	public FabricInvalidationKey getInvalidationKey(ResolutionContext ctx) {
-		// TODO: add config for this
-		return new FabricInvalidationKey(ctx.getLoadingVersion(), ctx.getLoadingSide(), null);
+		return new FabricInvalidationKey(ctx.getLoadingVersion(), ctx.getLoadingSide());
 	}
 }
