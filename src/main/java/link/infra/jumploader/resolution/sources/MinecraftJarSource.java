@@ -180,7 +180,7 @@ public class MinecraftJarSource implements ResolvableJarSource<MinecraftJarSourc
 
 		List<ResolvableJar> jars = new ArrayList<>();
 		jars.add(new ResolvableJar(meta.gameJar.source,
-			ctx.getEnvironment().jarStorage.getGameJar(gameVersion, side),
+			ctx.getEnvironment().jarStorage.getGameJar(meta.gameJar.version, meta.gameJar.side),
 			SHA1HashingInputStream.verifier(meta.gameJar.hash, meta.gameJar.source.toString()),
 			() -> {
 				if (side == Side.CLIENT) {

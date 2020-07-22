@@ -11,7 +11,7 @@ import java.nio.ByteBuffer;
 import java.nio.IntBuffer;
 
 public class Image implements Component {
-	private ByteBuffer imageData;
+	private final ByteBuffer imageData;
 	private final int width;
 	private final int height;
 	private final int components;

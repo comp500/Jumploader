@@ -19,6 +19,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
 
+@SuppressWarnings("CanBeFinal")
 public class ConfigFile {
 	private transient final Path destFile;
 	private transient boolean dirty = false;
