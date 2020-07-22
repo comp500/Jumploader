@@ -12,9 +12,11 @@ import link.infra.jumploader.launch.arguments.ParsedArguments;
 import link.infra.jumploader.launch.classpath.ClasspathReplacer;
 import link.infra.jumploader.resolution.EnvironmentDiscoverer;
 import link.infra.jumploader.resolution.ResolutionProcessor;
+import link.infra.jumploader.resolution.download.PreDownloadCheck;
 import link.infra.jumploader.resolution.sources.MetadataResolutionResult;
 import link.infra.jumploader.resolution.sources.ResolutionContext;
 import link.infra.jumploader.resolution.sources.ResolutionContextImpl;
+import link.infra.jumploader.resolution.ui.messages.ErrorMessages;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
@@ -82,10 +84,13 @@ public class Jumploader implements ITransformationService {
 			config = ConfigFile.read(environmentDiscoverer);
 			config.saveIfDirty();
 		} catch (JsonParseException | IOException e) {
-			// TODO: better error handling
+			ErrorMessages.showFatalMessage("Jumploader failed to load", "Failed to read config file: " + e.getClass().getTypeName() + ": " + e.getLocalizedMessage(), LOGGER);
 			throw new RuntimeException("Failed to read config file", e);
 		}
 
+		if (config.disableUI) {
+			ErrorMessages.disableGUI();
+		}
 		LOGGER.info("Configuration successfully loaded with sources: [" + String.join(", ", config.sources) + "] Resolving JARs to jumpload...");
 
 		ResolutionContext resCtx = new ResolutionContextImpl(config, environmentDiscoverer, argsParsed);
@@ -94,23 +99,26 @@ public class Jumploader implements ITransformationService {
 		try {
 			metadataResolutionResults = ResolutionProcessor.processMetadata(resCtx);
 		} catch (IOException e) {
-			// TODO: better error handling
-			throw new RuntimeException(e);
+			ErrorMessages.showFatalMessage("Jumploader failed to load", "Failed to resolve metadata: " + e.getClass().getTypeName() + ": " + e.getLocalizedMessage(), LOGGER);
+			throw new RuntimeException("Failed to resolve metadata", e);
 		}
 		// Download and resolve URLs for jars
 		List<URL> loadUrls;
 		try {
 			loadUrls = ResolutionProcessor.resolveJars(metadataResolutionResults, resCtx);
 		} catch (IOException e) {
-			// TODO: better error handling
-			throw new RuntimeException(e);
+			ErrorMessages.showFatalMessage("Jumploader failed to load", "Failed to resolve jars: " + e.getClass().getTypeName() + ": " + e.getLocalizedMessage(), LOGGER);
+			throw new RuntimeException("Failed to resolve jars", e);
+		} catch (PreDownloadCheck.PreDownloadCheckException e) {
+			ErrorMessages.showFatalMessage("Jumploader failed to load", "Failed to download jar: " + e.getMessage(), LOGGER);
+			throw new RuntimeException("Failed to download jar", e);
 		}
 
 		// Replace the classpath URLs
 		try {
 			ClasspathReplacer.replaceClasspath(loadUrls);
 		} catch (URISyntaxException e) {
-			// TODO: better error handling
+			ErrorMessages.showFatalMessage("Jumploader failed to load", "Failed to parse URL in replacement classpath: " + e.getClass().getTypeName() + ": " + e.getLocalizedMessage(), LOGGER);
 			throw new RuntimeException("Failed to parse URL in replacement classpath", e);
 		}
 
@@ -140,8 +148,8 @@ public class Jumploader implements ITransformationService {
 			}
 		}
 		if (mainClassName == null) {
-			// TODO: better error handling
-			throw new RuntimeException("Sources did not provide a main class!");
+			ErrorMessages.showFatalMessage("Jumploader failed to load", "Sources [" + String.join(", ", config.sources) + "] did not provide a main class!", LOGGER);
+			throw new RuntimeException("Sources [" + String.join(", ", config.sources) + "] did not provide a main class!");
 		}
 
 		LOGGER.info("Jumping to new loader, main class: " + mainClassName);
@@ -150,29 +158,24 @@ public class Jumploader implements ITransformationService {
 		try {
 			mainClass = newLoader.loadClass(mainClassName);
 		} catch (ClassNotFoundException e) {
-			// TODO: better error handling
-			if (isFabric) {
-				throw new RuntimeException("Failed to load " +
-					mainClassName.substring(mainClassName.lastIndexOf(".") + 1) +
-					" (Fabric) from " + mainClassName, e);
-			}
-			throw new RuntimeException("Failed to load " +
-				mainClassName.substring(mainClassName.lastIndexOf(".") + 1) +
-				" from " + mainClassName, e);
+			String clsName = mainClassName.substring(mainClassName.lastIndexOf(".") + 1);
+			String msg = isFabric ? "Failed to load " + clsName + " (Fabric) from " + mainClassName :
+				"Failed to load " + clsName + " from " + mainClassName;
+
+			ErrorMessages.showFatalMessage("Jumploader failed to load", msg, LOGGER);
+			throw new RuntimeException(msg, e);
 		}
 		if (mainClass != null) {
 			try {
 				Method main = mainClass.getMethod("main", String[].class);
 				main.invoke(null, new Object[] {argsParsed.getArgsArray()});
 			} catch (NoSuchMethodException | IllegalAccessException e) {
-				if (isFabric) {
-					throw new RuntimeException("Failed to invoke " +
-						mainClassName.substring(mainClassName.lastIndexOf(".") + 1) +
-						" (Fabric) from " + mainClassName, e);
-				}
-				throw new RuntimeException("Failed to invoke " +
-					mainClassName.substring(mainClassName.lastIndexOf(".") + 1) +
-					" from " + mainClassName, e);
+				String clsName = mainClassName.substring(mainClassName.lastIndexOf(".") + 1);
+				String msg = isFabric ? "Failed to invoke " + clsName + " (Fabric) from " + mainClassName :
+					"Failed to invoke " + clsName + " from " + mainClassName;
+
+				ErrorMessages.showFatalMessage("Jumploader failed to load", msg, LOGGER);
+				throw new RuntimeException(msg, e);
 			} catch (InvocationTargetException e) {
 				throw new RuntimeException(e.getTargetException());
 			}

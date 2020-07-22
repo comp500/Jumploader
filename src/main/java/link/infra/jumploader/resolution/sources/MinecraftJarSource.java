@@ -6,6 +6,7 @@ import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.reflect.TypeToken;
 import link.infra.jumploader.resolution.ResolvableJar;
+import link.infra.jumploader.resolution.download.PreDownloadCheck;
 import link.infra.jumploader.resolution.download.verification.SHA1HashingInputStream;
 import link.infra.jumploader.util.RequestUtils;
 import link.infra.jumploader.util.Side;
@@ -97,14 +98,7 @@ public class MinecraftJarSource implements ResolvableJarSource<MinecraftJarSourc
 				return new URL(versionObj.get("url").getAsString());
 			}
 		}
-		// TODO: better error handling
-		throw new RuntimeException("Invalid Minecraft version, not found in manifest");
-	}
-
-	public static class LoginValidationException extends IOException {
-		private LoginValidationException() {
-			super("Authentication token is invalid, please go online to download the Minecraft JAR!");
-		}
+		throw new IOException("Invalid Minecraft version, not found in manifest");
 	}
 
 	private static class Rule {
@@ -122,7 +116,6 @@ public class MinecraftJarSource implements ResolvableJarSource<MinecraftJarSourc
 		Side side = ctx.getLoadingSide();
 		MinecraftMetadata meta = cacheView.getObject("minecraft.json", MinecraftMetadata.class, () -> {
 			URL versionMetaUrl = retrieveVersionMetaUrl(gameVersion);
-			// TODO: better handling of errors from JSON parsing?
 			JsonObject manifestData = RequestUtils.getJson(versionMetaUrl).getAsJsonObject();
 			JsonObject downloads = manifestData.getAsJsonObject("downloads");
 
@@ -188,27 +181,25 @@ public class MinecraftJarSource implements ResolvableJarSource<MinecraftJarSourc
 		List<ResolvableJar> jars = new ArrayList<>();
 		jars.add(new ResolvableJar(meta.gameJar.source,
 			ctx.getEnvironment().jarStorage.getGameJar(gameVersion, side),
-			SHA1HashingInputStream.verifier(meta.gameJar.hash),
+			SHA1HashingInputStream.verifier(meta.gameJar.hash, meta.gameJar.source.toString()),
 			() -> {
-				// TODO: pass up message
 				if (side == Side.CLIENT) {
 					try {
 						JsonObject req = new JsonObject();
 						req.addProperty("accessToken", ctx.getArguments().accessToken);
 						int resCode = RequestUtils.postJsonForResCode(new URL("https://authserver.mojang.com/validate"), req);
 						if (resCode != 204 && resCode != 200) {
-							return false;
+							throw new PreDownloadCheck.PreDownloadCheckException("Authentication token is invalid, please go online to download the Minecraft JAR!");
 						}
 					} catch (IOException e) {
-						return false;
+						throw new PreDownloadCheck.PreDownloadCheckException("Failed to check authentication, please go online to download the Minecraft JAR!", e);
 					}
 				}
-				return true;
 			}, "Minecraft " + side + " " + gameVersion));
 		for (MinecraftLibraryJar libraryJar : meta.libs) {
 			jars.add(new ResolvableJar(libraryJar.source,
 				ctx.getEnvironment().jarStorage.getLibraryMaven(libraryJar.mavenPath),
-				SHA1HashingInputStream.verifier(libraryJar.hash), "Minecraft library " + libraryJar.mavenPath));
+				SHA1HashingInputStream.verifier(libraryJar.hash, libraryJar.source.toString()), "Minecraft library " + libraryJar.mavenPath));
 		}
 
 		if (side == Side.SERVER) {

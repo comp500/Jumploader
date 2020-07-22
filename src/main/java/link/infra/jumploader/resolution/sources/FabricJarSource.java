@@ -82,13 +82,12 @@ public class FabricJarSource implements ResolvableJarSource<FabricJarSource.Fabr
 		String gameVersion = ctx.getLoadingVersion();
 		Side side = ctx.getLoadingSide();
 		FabricMetadata meta;
-		try {
-			meta = cacheView.getObject("fabric.json", FabricMetadata.class, () -> {
+		meta = cacheView.getObject("fabric.json", FabricMetadata.class, () -> {
+			try {
 				URL loaderJsonUrl = new URI("https", "meta.fabricmc.net", "/v2/versions/loader/" + gameVersion, null).toURL();
 				JsonArray manifestData = RequestUtils.getJson(loaderJsonUrl).getAsJsonArray();
 				if (manifestData.size() == 0) {
-					// TODO: no runtime exceptions for better context
-					throw new RuntimeException("Failed to update configuration: no Fabric versions available!");
+					throw new IOException("Failed to update configuration: no Fabric versions available!");
 				}
 
 				JsonObject latestLoaderData = manifestData.get(0).getAsJsonObject();
@@ -125,19 +124,17 @@ public class FabricJarSource implements ResolvableJarSource<FabricJarSource.Fabr
 				}
 
 				return newMetadata;
-			});
-		} catch (URISyntaxException e) {
-			// TODO: clean up error handling
-			e.printStackTrace();
-			throw new RuntimeException(e);
-		}
+			} catch (URISyntaxException e) {
+				throw new IOException("Failed to parse Fabric source URL", e);
+			}
+		});
 		cacheView.completeUpdate();
 
 		List<ResolvableJar> jars = new ArrayList<>();
 		for (FabricLibraryJar libraryJar : meta.libs) {
 			jars.add(new ResolvableJar(libraryJar.source,
 				ctx.getEnvironment().jarStorage.getLibraryMaven(libraryJar.mavenPath),
-				SHA1HashingInputStream.verifier(libraryJar.hash), "Fabric library " + libraryJar.source));
+				SHA1HashingInputStream.verifier(libraryJar.hash, libraryJar.source.toString()), "Fabric library " + libraryJar.source));
 		}
 
 		return new MetadataResolutionResult(jars, meta.mainClass);

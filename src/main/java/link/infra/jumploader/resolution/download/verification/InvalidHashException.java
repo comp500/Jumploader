@@ -3,12 +3,13 @@ package link.infra.jumploader.resolution.download.verification;
 import java.io.IOException;
 
 public class InvalidHashException extends IOException {
-	// TODO: handle at the ResolvableJar level
+	public final String downloadUrl;
 	public final String expectedHash;
 	public final String hashFound;
 
-	public InvalidHashException(String expectedHash, String hashFound) {
+	public InvalidHashException(String expectedHash, String hashFound, String downloadUrl) {
 		this.expectedHash = expectedHash;
 		this.hashFound = hashFound;
+		this.downloadUrl = downloadUrl;
 	}
 }

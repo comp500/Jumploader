@@ -7,6 +7,7 @@ import com.google.gson.JsonParseException;
 import com.google.gson.annotations.Expose;
 import link.infra.jumploader.resolution.EnvironmentDiscoverer;
 import link.infra.jumploader.resolution.sources.SourcesRegistry;
+import link.infra.jumploader.resolution.ui.messages.ErrorMessages;
 import link.infra.jumploader.util.Side;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -52,10 +53,15 @@ public class ConfigFile {
 	public AutoconfOptions autoconfig = null;
 
 	private static class AutoconfOptions {
+		@Expose
 		public boolean enable = true;
+		@Expose
 		public String handler = "fabric";
+		@Expose
 		public boolean forceUpdate = false;
+		@Expose
 		public String side = null;
+		@Expose
 		public String gameVersion = null;
 	}
 
@@ -78,8 +84,7 @@ public class ConfigFile {
 						if (loadedFile.autoconfig != null) {
 							if (!loadedFile.autoconfig.enable || !loadedFile.autoconfig.handler.equals("fabric")
 								|| loadedFile.autoconfig.forceUpdate || loadedFile.autoconfig.side != null || loadedFile.autoconfig.gameVersion != null) {
-								// TODO: show window
-								System.out.println("I should show a window now");
+								ErrorMessages.showInfoMessage("Jumploader 2.0 update", "Please note: Configuration changes from Jumploader 1.0.x will be reset due to changes in Jumploader 2.0", LOGGER);
 							}
 						}
 						LOGGER.info("Jumploader 1.0.x config file has been detected, your settings have been reset!");

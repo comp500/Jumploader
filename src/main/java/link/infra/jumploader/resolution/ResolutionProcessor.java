@@ -3,9 +3,11 @@ package link.infra.jumploader.resolution;
 import link.infra.jumploader.Jumploader;
 import link.infra.jumploader.resolution.download.BytesReportingInputStream;
 import link.infra.jumploader.resolution.download.DownloadWorkerManager;
+import link.infra.jumploader.resolution.download.PreDownloadCheck;
 import link.infra.jumploader.resolution.download.verification.InvalidHashException;
 import link.infra.jumploader.resolution.sources.*;
 import link.infra.jumploader.resolution.ui.GUIManager;
+import link.infra.jumploader.resolution.ui.messages.ErrorMessages;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
@@ -18,6 +20,7 @@ import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.ExecutionException;
 
 public class ResolutionProcessor {
 	private static final Logger LOGGER = LogManager.getLogger();
@@ -37,7 +40,7 @@ public class ResolutionProcessor {
 		return source.resolve(view, ctx);
 	}
 
-	public static List<URL> resolveJars(List<MetadataResolutionResult> metadataResolutionResults, ResolutionContext ctx) throws IOException {
+	public static List<URL> resolveJars(List<MetadataResolutionResult> metadataResolutionResults, ResolutionContext ctx) throws IOException, PreDownloadCheck.PreDownloadCheckException {
 		List<URL> urls = new ArrayList<>();
 		List<ResolvableJar> downloadQueue = new ArrayList<>();
 
@@ -87,11 +90,7 @@ public class ResolutionProcessor {
 				// Download file
 				if (jar.url != null) {
 					if (jar.downloadCheck != null) {
-						if (!jar.downloadCheck.check()) {
-							// TODO: better error handling
-							LOGGER.error(jarUrl + " failed download check!!");
-							throw new RuntimeException("Download check failed");
-						}
+						jar.downloadCheck.check();
 					}
 					LOGGER.info("Queueing download: " + jar.friendlyName);
 					downloadQueue.add(jar);
@@ -134,8 +133,23 @@ public class ResolutionProcessor {
 					URL resolvedURL;
 					try {
 						resolvedURL = workerManager.pollResult(500);
-					} catch (Exception e) {
-						// TODO: implement a better way of showing download exceptions?
+					} catch (InvalidHashException e) {
+						try {
+							workerManager.shutdown();
+						} catch (InterruptedException ex) {
+							throw new RuntimeException(ex);
+						}
+						ErrorMessages.showFatalMessage("Jumploader failed to load", "Hash mismatch for " +
+							e.downloadUrl + "\r\nExpected " + e.expectedHash + " but found " + e.hashFound + ".\r\nIs your internet connection working?", LOGGER);
+						throw new RuntimeException("Failed to download jar");
+					} catch (IOException e) {
+						try {
+							workerManager.shutdown();
+						} catch (InterruptedException ex) {
+							throw new RuntimeException(ex);
+						}
+						throw e;
+					} catch (ExecutionException | InterruptedException e) {
 						try {
 							workerManager.shutdown();
 						} catch (InterruptedException ex) {
@@ -173,8 +187,25 @@ public class ResolutionProcessor {
 					URL resolvedURL;
 					try {
 						resolvedURL = workerManager.pollResult();
-					} catch (Exception e) {
-						// TODO: implement a better way of showing download exceptions?
+					} catch (InvalidHashException e) {
+						try {
+							workerManager.shutdown();
+						} catch (InterruptedException ex) {
+							throw new RuntimeException(ex);
+						}
+						ErrorMessages.showFatalMessage("Jumploader failed to load", "Hash mismatch for " +
+							e.downloadUrl + "\r\nExpected " + e.expectedHash + " but found " + e.hashFound + ".\r\nIs your internet connection working?", LOGGER);
+						guiManager.cleanup();
+						throw new RuntimeException("Failed to download jar");
+					} catch (IOException e) {
+						try {
+							workerManager.shutdown();
+						} catch (InterruptedException ex) {
+							throw new RuntimeException(ex);
+						}
+						guiManager.cleanup();
+						throw e;
+					} catch (ExecutionException | InterruptedException e) {
 						try {
 							workerManager.shutdown();
 						} catch (InterruptedException ex) {

@@ -14,13 +14,15 @@ import java.util.Arrays;
 public class SHA1HashingInputStream extends FilterInputStream {
 	private final byte[] compareToHash;
 	private final MessageDigest digest;
+	private final String downloadUrl;
 
-	public static HashVerifierProvider verifier(String compareToHash) {
-		return inputStream -> new SHA1HashingInputStream(inputStream, compareToHash);
+	public static HashVerifierProvider verifier(String compareToHash, String downloadUrl) {
+		return inputStream -> new SHA1HashingInputStream(inputStream, compareToHash, downloadUrl);
 	}
 
-	protected SHA1HashingInputStream(InputStream inputStream, String compareToHash) {
+	protected SHA1HashingInputStream(InputStream inputStream, String compareToHash, String downloadUrl) {
 		super(inputStream);
+		this.downloadUrl = downloadUrl;
 		try {
 			this.compareToHash = Hex.decodeHex(compareToHash.toCharArray());
 			digest = MessageDigest.getInstance("SHA-1");
@@ -73,7 +75,7 @@ public class SHA1HashingInputStream extends FilterInputStream {
 			alreadyClosed = true;
 			byte[] result = digest.digest();
 			if (!Arrays.equals(result, compareToHash)) {
-				throw new InvalidHashException(Hex.encodeHexString(compareToHash), Hex.encodeHexString(result));
+				throw new InvalidHashException(Hex.encodeHexString(compareToHash), Hex.encodeHexString(result), downloadUrl);
 			}
 		}
 	}

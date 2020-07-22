@@ -1,5 +1,6 @@
 package link.infra.jumploader.resolution.download;
 
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.*;
@@ -17,7 +18,7 @@ public class DownloadWorkerManager<T> {
 	 * A DownloadWorker downloads one file, reporting its progress to the TaskStatus given
 	 */
 	public interface DownloadWorker<T> {
-		T start(TaskStatus status) throws Exception;
+		T start(TaskStatus status) throws IOException;
 	}
 
 	public static class TaskStatus {
@@ -66,7 +67,7 @@ public class DownloadWorkerManager<T> {
 	}
 
 	private class TaskResult {
-		private final Exception failure;
+		private final IOException failure;
 		private final T result;
 
 		private TaskResult(T result) {
@@ -74,12 +75,12 @@ public class DownloadWorkerManager<T> {
 			this.failure = null;
 		}
 
-		private TaskResult(Exception failure) {
+		private TaskResult(IOException failure) {
 			this.result = null;
 			this.failure = failure;
 		}
 
-		public Exception getFailure() {
+		public IOException getFailure() {
 			return failure;
 		}
 
@@ -98,7 +99,7 @@ public class DownloadWorkerManager<T> {
 				T result = worker.start(status);
 				status.markCompleted();
 				return new TaskResult(result);
-			} catch (Exception e) {
+			} catch (IOException e) {
 				status.markCompleted();
 				return new TaskResult(e);
 			}
@@ -107,7 +108,7 @@ public class DownloadWorkerManager<T> {
 		queuedTasks++;
 	}
 
-	public T pollResult() throws Exception {
+	public T pollResult() throws IOException, ExecutionException, InterruptedException {
 		Future<TaskResult> fRes = completionService.poll();
 		if (fRes == null) {
 			return null;
@@ -121,7 +122,7 @@ public class DownloadWorkerManager<T> {
 		return res.getResult();
 	}
 
-	public T pollResult(long millisecondsToWait) throws Exception {
+	public T pollResult(long millisecondsToWait) throws IOException, InterruptedException, ExecutionException {
 		Future<TaskResult> fRes = completionService.poll(millisecondsToWait, TimeUnit.MILLISECONDS);
 		if (fRes == null) {
 			return null;
