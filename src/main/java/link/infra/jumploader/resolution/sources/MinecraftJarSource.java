@@ -143,11 +143,10 @@ public class MinecraftJarSource implements ResolvableJarSource<MinecraftJarSourc
 							}
 						}
 						if (rule.action.equals("disallow")) {
-							break;
+							isAllowed = false;
 						}
 						if (rule.action.equals("allow")) {
 							isAllowed = true;
-							break;
 						}
 					}
 					if (!isAllowed) {
