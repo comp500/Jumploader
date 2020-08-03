@@ -157,7 +157,7 @@ public class MinecraftJarSource implements ResolvableJarSource<MinecraftJarSourc
 
 				JsonObject downloadsObj = libObj.getAsJsonObject("downloads");
 				JsonObject nativesObj = libObj.getAsJsonObject("natives");
-				if (nativesObj != null) {
+				if (nativesObj != null && nativesObj.has(currentOS)) {
 					// TODO: should natives be ignored anyway? - we don't/can't handle them properly (see wiki)
 					String nativesClassifier = nativesObj.get(currentOS).getAsString();
 					JsonObject nativesDownloadObj = downloadsObj.getAsJsonObject("classifiers").getAsJsonObject(nativesClassifier);
