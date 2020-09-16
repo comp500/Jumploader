@@ -196,10 +196,13 @@ public class MinecraftJarSource implements ResolvableJarSource<MinecraftJarSourc
 					}
 				}
 			}, "Minecraft " + side + " " + gameVersion));
-		for (MinecraftLibraryJar libraryJar : meta.libs) {
-			jars.add(new ResolvableJar(libraryJar.source,
-				ctx.getEnvironment().jarStorage.getLibraryMaven(libraryJar.mavenPath),
-				SHA1HashingInputStream.verifier(libraryJar.hash, libraryJar.source.toString()), "Minecraft library " + libraryJar.mavenPath));
+		// The server JAR bundles all it's dependencies
+		if (side == Side.CLIENT) {
+			for (MinecraftLibraryJar libraryJar : meta.libs) {
+				jars.add(new ResolvableJar(libraryJar.source,
+					ctx.getEnvironment().jarStorage.getLibraryMaven(libraryJar.mavenPath),
+					SHA1HashingInputStream.verifier(libraryJar.hash, libraryJar.source.toString()), "Minecraft library " + libraryJar.mavenPath));
+			}
 		}
 
 		if (side == Side.SERVER) {

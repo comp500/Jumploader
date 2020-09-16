@@ -52,7 +52,12 @@ public class ParsedArguments {
 		accessToken = get("accessToken");
 		windowWidth = getIntOrDefault("width", 854);
 		windowHeight = getIntOrDefault("height", 480);
-		inferredSide = Side.of(getOrDefault("launchTarget", ""));
+		String launchTarget = getOrDefault("launchTarget", "");
+		if (launchTarget.equals("fmluserdevserver")) {
+			inferredSide = Side.SERVER;
+		} else {
+			inferredSide = Side.of(launchTarget);
+		}
 
 		removeFMLArgs(argumentsList);
 		replaceTwitchBrand(getOrDefault("version", ""), argumentsList, gameDir);

@@ -115,6 +115,11 @@ public class FabricJarSource implements ResolvableJarSource<FabricJarSource.Fabr
 				}
 				for (JsonElement library : libraries.getAsJsonArray(side.name)) {
 					JsonObject libraryObj = library.getAsJsonObject();
+					// Special-case guava on server ("jimfs in fabric-server-launch requires guava on the system classloader")
+					// We already work around this behaviour, and we can't get it on the system classloader directly anyway
+					if (side == Side.SERVER && libraryObj.get("name").getAsString().contains("com.google.guava:guava")) {
+						continue;
+					}
 					URL libUrl = RequestUtils.resolveMavenPath(new URI(libraryObj.get("url").getAsString()), libraryObj.get("name").getAsString()).toURL();
 					newMetadata.libs.add(new FabricLibraryJar(
 						libraryObj.get("name").getAsString(),
