@@ -93,7 +93,9 @@ public class ConfigFile {
 						newFile.dirty = true;
 						return newFile;
 					}
-					environmentDiscoverer.updateForSide(loadedFile.gameSide);
+					if (loadedFile.gameSide != null) {
+						environmentDiscoverer.updateForSide(loadedFile.gameSide);
+					}
 					return loadedFile;
 				}
 			}
