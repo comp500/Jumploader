@@ -116,7 +116,7 @@ public class ResolutionProcessor {
 					try (InputStream res = jar.hashVerifier != null ? jar.hashVerifier.getVerifier(conn.getInputStream()) : conn.getInputStream();
 						 BytesReportingInputStream bris = new BytesReportingInputStream(res, status, contentLength)) {
 						Files.copy(bris, tmpPath, StandardCopyOption.REPLACE_EXISTING);
-						Files.move(tmpPath, jar.path);
+						Files.move(tmpPath, jar.path, StandardCopyOption.REPLACE_EXISTING);
 					} catch (InvalidHashException e) {
 						Files.deleteIfExists(jar.path);
 						Files.deleteIfExists(tmpPath);
