@@ -157,15 +157,17 @@ public class MinecraftJarSource implements ResolvableJarSource<MinecraftJarSourc
 
 				JsonObject downloadsObj = libObj.getAsJsonObject("downloads");
 				JsonObject nativesObj = libObj.getAsJsonObject("natives");
-				if (nativesObj != null && nativesObj.has(currentOS)) {
+				if (nativesObj != null && nativesObj.size() > 0) {
 					// TODO: should natives be ignored anyway? - we don't/can't handle them properly (see wiki)
-					String nativesClassifier = nativesObj.get(currentOS).getAsString();
-					JsonObject nativesDownloadObj = downloadsObj.getAsJsonObject("classifiers").getAsJsonObject(nativesClassifier);
-					if (nativesDownloadObj == null) {
-						throw new RuntimeException("No natives available in " + downloadsObj + " classifier " + nativesClassifier);
+					if (nativesObj.has(currentOS)) {
+						String nativesClassifier = nativesObj.get(currentOS).getAsString();
+						JsonObject nativesDownloadObj = downloadsObj.getAsJsonObject("classifiers").getAsJsonObject(nativesClassifier);
+						if (nativesDownloadObj == null) {
+							throw new RuntimeException("No natives available in " + downloadsObj + " classifier " + nativesClassifier);
+						}
+						newMetadata.libs.add(new MinecraftLibraryJar(libObj.get("name").getAsString() + ":" + nativesClassifier,
+							new URL(nativesDownloadObj.get("url").getAsString()), nativesDownloadObj.get("sha1").getAsString()));
 					}
-					newMetadata.libs.add(new MinecraftLibraryJar(libObj.get("name").getAsString() + ":" + nativesClassifier,
-						new URL(nativesDownloadObj.get("url").getAsString()), nativesDownloadObj.get("sha1").getAsString()));
 					continue;
 				}
 
