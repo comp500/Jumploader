@@ -20,15 +20,17 @@ public class FabricJarSource implements ResolvableJarSource<FabricJarSource.Fabr
 	public static class FabricInvalidationKey implements MetadataCacheHelper.InvalidationKey<FabricInvalidationKey> {
 		public final String gameVersion;
 		public final Side side;
+		public final String pinnedFabricVersion;
 
-		protected FabricInvalidationKey(String gameVersion, Side side) {
+		protected FabricInvalidationKey(String gameVersion, Side side, String pinnedFabricVersion) {
 			this.gameVersion = gameVersion;
 			this.side = side;
+			this.pinnedFabricVersion = pinnedFabricVersion;
 		}
 
 		@Override
 		public boolean isValid(FabricInvalidationKey key) {
-			return equals(key);
+			return equals(key) && key.pinnedFabricVersion != null;
 		}
 
 		@Override
@@ -36,13 +38,14 @@ public class FabricJarSource implements ResolvableJarSource<FabricJarSource.Fabr
 			if (this == o) return true;
 			if (o == null || getClass() != o.getClass()) return false;
 			FabricInvalidationKey that = (FabricInvalidationKey) o;
-			return gameVersion.equals(that.gameVersion) &&
-				side == that.side;
+			return Objects.equals(gameVersion, that.gameVersion) &&
+				side == that.side &&
+				Objects.equals(pinnedFabricVersion, that.pinnedFabricVersion);
 		}
 
 		@Override
 		public int hashCode() {
-			return Objects.hash(gameVersion, side);
+			return Objects.hash(gameVersion, side, pinnedFabricVersion);
 		}
 	}
 
@@ -84,13 +87,24 @@ public class FabricJarSource implements ResolvableJarSource<FabricJarSource.Fabr
 		FabricMetadata meta;
 		meta = cacheView.getObject("fabric.json", FabricMetadata.class, () -> {
 			try {
-				URL loaderJsonUrl = new URI("https", "meta.fabricmc.net", "/v2/versions/loader/" + gameVersion, null).toURL();
-				JsonArray manifestData = RequestUtils.getJson(loaderJsonUrl).getAsJsonArray();
-				if (manifestData.size() == 0) {
-					throw new IOException("Failed to update configuration: no Fabric versions available!");
+				JsonObject latestLoaderData;
+				if (ctx.getConfigFile().pinFabricLoaderVersion != null) {
+					URL loaderJsonUrl = new URI("https", "meta.fabricmc.net", "/v2/versions/loader/" + gameVersion + "/" + ctx.getConfigFile().pinFabricLoaderVersion, null).toURL();
+					latestLoaderData = RequestUtils.getJson(loaderJsonUrl).getAsJsonObject();
+				} else {
+					URL loaderJsonUrl = new URI("https", "meta.fabricmc.net", "/v2/versions/loader/" + gameVersion, null).toURL();
+					JsonArray manifestData = RequestUtils.getJson(loaderJsonUrl).getAsJsonArray();
+					if (manifestData.size() == 0) {
+						throw new IOException("Failed to update configuration: no Fabric versions available!");
+					}
+					latestLoaderData = manifestData.get(0).getAsJsonObject();
 				}
 
-				JsonObject latestLoaderData = manifestData.get(0).getAsJsonObject();
+				if (ctx.getConfigFile().pinFabricLoaderVersion == null) {
+					ctx.getConfigFile().pinFabricLoaderVersion = latestLoaderData.getAsJsonObject("loader").get("version").getAsString();
+					ctx.getConfigFile().save();
+				}
+
 				JsonObject launcherMeta = latestLoaderData.getAsJsonObject("launcherMeta");
 				JsonObject mainClass = launcherMeta.getAsJsonObject("mainClass");
 
@@ -152,6 +166,6 @@ public class FabricJarSource implements ResolvableJarSource<FabricJarSource.Fabr
 
 	@Override
 	public FabricInvalidationKey getInvalidationKey(ResolutionContext ctx) {
-		return new FabricInvalidationKey(ctx.getLoadingVersion(), ctx.getLoadingSide());
+		return new FabricInvalidationKey(ctx.getLoadingVersion(), ctx.getLoadingSide(), ctx.getConfigFile().pinFabricLoaderVersion);
 	}
 }
