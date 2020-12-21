@@ -53,7 +53,7 @@ public class ParsedArguments {
 		windowWidth = getIntOrDefault("width", 854);
 		windowHeight = getIntOrDefault("height", 480);
 		String launchTarget = getOrDefault("launchTarget", "");
-		if (launchTarget.equals("fmluserdevserver")) {
+		if (launchTarget.equals("fmluserdevserver") || launchTarget.equals("fmlserver")) {
 			inferredSide = Side.SERVER;
 		} else {
 			inferredSide = Side.of(launchTarget);
