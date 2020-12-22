@@ -34,7 +34,7 @@ import java.util.List;
 import java.util.Set;
 
 public class Jumploader implements ITransformationService {
-	public static final String VERSION = "2.1.1";
+	public static final String VERSION = "2.1.2";
 	public static final String USER_AGENT = "Jumploader/" + VERSION;
 
 	private final Logger LOGGER = LogManager.getLogger();
