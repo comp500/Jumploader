@@ -6,7 +6,6 @@ import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.reflect.TypeToken;
 import link.infra.jumploader.resolution.ResolvableJar;
-import link.infra.jumploader.resolution.download.PreDownloadCheck;
 import link.infra.jumploader.resolution.download.verification.SHA1HashingInputStream;
 import link.infra.jumploader.util.RequestUtils;
 import link.infra.jumploader.util.Side;
@@ -184,20 +183,7 @@ public class MinecraftJarSource implements ResolvableJarSource<MinecraftJarSourc
 		jars.add(new ResolvableJar(meta.gameJar.source,
 			ctx.getEnvironment().jarStorage.getGameJar(meta.gameJar.version, meta.gameJar.side),
 			SHA1HashingInputStream.verifier(meta.gameJar.hash, meta.gameJar.source.toString()),
-			() -> {
-				if (side == Side.CLIENT) {
-					try {
-						JsonObject req = new JsonObject();
-						req.addProperty("accessToken", ctx.getArguments().accessToken);
-						int resCode = RequestUtils.postJsonForResCode(new URL("https://authserver.mojang.com/validate"), req);
-						if (resCode != 204 && resCode != 200) {
-							throw new PreDownloadCheck.PreDownloadCheckException("Authentication token is invalid, please go online to download the Minecraft JAR!");
-						}
-					} catch (IOException e) {
-						throw new PreDownloadCheck.PreDownloadCheckException("Failed to check authentication, please go online to download the Minecraft JAR!", e);
-					}
-				}
-			}, "Minecraft " + side + " " + gameVersion));
+			"Minecraft " + side + " " + gameVersion));
 		// The server JAR bundles all it's dependencies
 		if (side == Side.CLIENT) {
 			for (MinecraftLibraryJar libraryJar : meta.libs) {
