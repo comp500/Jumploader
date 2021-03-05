@@ -128,6 +128,10 @@ jar {
     }
 }
 
+compileJava {
+    options.compilerArgs.addAll(["--release", "8"])
+}
+
 // Example configuration to allow publishing using the maven-publish task
 // we define a custom artifact that is sourced from the reobfJar output task
 // and then declare that to be published
